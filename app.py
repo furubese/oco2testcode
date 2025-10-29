@@ -3,21 +3,53 @@ Flask API Server for CO2 Anomaly Reasoning
 Provides endpoint for generating reasoning about CO2 concentration anomalies
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from typing import Dict, Any
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Import our modules
 import cache_manager
 import gemini_client
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.')
 
 # CORS設定: すべてのオリジン許可（開発用）
 CORS(app)
 
 
-@app.route('/', methods=['GET'])
+# 静的ファイル配信ルート（APIより先に定義）
+@app.route('/')
+def index():
+    """
+    ルートページ - sample_calendar.htmlを配信
+    """
+    return send_from_directory('.', 'sample_calendar.html')
+
+
+@app.route('/<path:filename>')
+def serve_static(filename: str):
+    """
+    静的ファイル配信エンドポイント（GeoJSONなど）
+    ただし /api/ で始まるパスは除外
+    """
+    # /api/ で始まる場合は404を返す（APIルートに任せる）
+    if filename.startswith('api/') or filename.startswith('api'):
+        return jsonify({"error": "Not found"}), 404
+
+    # ファイルが存在するか確認
+    file_path = os.path.join('.', filename)
+    if not os.path.exists(file_path):
+        return jsonify({"error": "File not found", "path": filename}), 404
+
+    return send_from_directory('.', filename)
+
+
+@app.route('/api/health', methods=['GET'])
 def health_check() -> tuple:
     """
     ヘルスチェックエンドポイント
@@ -29,7 +61,8 @@ def health_check() -> tuple:
         "status": "ok",
         "message": "Flask API Server is running",
         "endpoints": [
-            {"method": "GET", "path": "/", "description": "Health check"},
+            {"method": "GET", "path": "/", "description": "Serve sample_calendar.html"},
+            {"method": "GET", "path": "/api/health", "description": "Health check"},
             {"method": "POST", "path": "/api/reasoning", "description": "Generate CO2 anomaly reasoning"}
         ]
     }), 200
@@ -154,17 +187,6 @@ def reasoning() -> tuple:
             "error": "Internal server error",
             "message": str(e)
         }), 500
-
-
-@app.errorhandler(404)
-def not_found(error) -> tuple:
-    """
-    404エラーハンドラー
-    """
-    return jsonify({
-        "error": "Not found",
-        "message": "The requested endpoint does not exist"
-    }), 404
 
 
 @app.errorhandler(405)

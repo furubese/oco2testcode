@@ -270,15 +270,15 @@
       <h3>CO₂異常値の原因推論</h3>
       <button class="close-btn" onclick="closeSidePanel()">&times;</button>
     </div>
+    <!-- ローディングインジケーター -->
+    <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+      <div class="spinner"></div>
+      <p class="loading-text">推論中...</p>
+    </div>
+
     <div class="side-panel-content">
       <p>ここにCO₂異常値の原因推論結果が表示されます。</p>
       <p>マーカーをクリックすると、その地点の詳細な分析情報が表示されます。</p>
-
-      <!-- ローディングインジケーター -->
-      <div id="loadingIndicator" class="loading-indicator" style="display: none;">
-        <div class="spinner"></div>
-        <p class="loading-text">推論中...</p>
-      </div>
     </div>
   </div>
 
@@ -691,6 +691,8 @@
               <span style="font-weight: 500;">${lat}°</span>
               <span style="color: #666;">経度:</span>
               <span style="font-weight: 500;">${lon}°</span>
+              <span style="color: #666;">観測日:</span>
+              <span style="font-weight: 500;">${detectionFiles[0] || 'N/A'}</span>
             </div>
           </div>
 
@@ -721,7 +723,7 @@
           </div>
 
           <div style="margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0; font-size: 16px; color: #333; border-bottom: 2px solid #dee2e6; padding-bottom: 5px;">🤖 AI原因推論</h4>
+            <h4 style="margin: 0 0 10px 0; font-size: 16px; color: #333; border-bottom: 2px solid #dee2e6; padding-bottom: 5px;">🤖 AI原因推論${apiResult.cached ? ' （キャッシュ）' : ''}</h4>
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
               ${reasoning}
             </div>
@@ -778,6 +780,8 @@
               <span style="font-weight: 500;">${lat}°</span>
               <span style="color: #666;">経度:</span>
               <span style="font-weight: 500;">${lon}°</span>
+              <span style="color: #666;">観測日:</span>
+              <span style="font-weight: 500;">${detectionFiles[0] || 'N/A'}</span>
             </div>
           </div>
 

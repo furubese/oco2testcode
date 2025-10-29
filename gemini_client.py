@@ -82,14 +82,14 @@ def generate_prompt(
     return prompt
 
 
-def call_gemini_api(prompt: str, model_name: str = "gemini-1.5-flash") -> str:
+def call_gemini_api(prompt: str, model_name: str = None) -> str:
     """
     Gemini APIを呼び出して推論を取得
     APIキーが設定されていない場合はサンプルメッセージを返す
 
     Args:
         prompt: 送信するプロンプト
-        model_name: 使用するGeminiモデル名（デフォルト: gemini-1.5-flash）
+        model_name: 使用するGeminiモデル名（デフォルト: 環境変数GEMINI_MODELの値、またはgemini-2.0-flash-exp）
 
     Returns:
         str: Geminiからの推論結果、またはサンプルメッセージ
@@ -100,6 +100,10 @@ def call_gemini_api(prompt: str, model_name: str = "gemini-1.5-flash") -> str:
     if not api_key:
         # APIキー未設定時はサンプルメッセージを返す
         return "API Keyが設定されていません。"
+
+    # モデル名が指定されていない場合は環境変数から取得
+    if model_name is None:
+        model_name = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash-exp')
 
     try:
         # APIキーを設定
@@ -132,7 +136,7 @@ def generate_inference(
     date: str,
     severity: str,
     zscore: float,
-    model_name: str = "gemini-1.5-flash"
+    model_name: str = None
 ) -> str:
     """
     CO2異常データから推論を生成する便利関数
@@ -145,7 +149,7 @@ def generate_inference(
         date: 日付 (YYYY-MM-DD形式)
         severity: 異常度 ("high", "medium", "low")
         zscore: Zスコア
-        model_name: 使用するGeminiモデル名
+        model_name: 使用するGeminiモデル名（デフォルト: 環境変数GEMINI_MODELの値）
 
     Returns:
         str: Geminiからの推論結果
