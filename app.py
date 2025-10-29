@@ -41,6 +41,12 @@ def serve_static(filename: str):
     if filename.startswith('api/') or filename.startswith('api'):
         return jsonify({"error": "Not found"}), 404
 
+    # GeoJSONファイルはdata/geojson/から提供
+    if filename.endswith('.geojson'):
+        file_path = os.path.join('data', 'geojson', filename)
+        if os.path.exists(file_path):
+            return send_from_directory(os.path.join('data', 'geojson'), filename)
+
     # ファイルが存在するか確認
     file_path = os.path.join('.', filename)
     if not os.path.exists(file_path):

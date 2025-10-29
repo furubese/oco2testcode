@@ -89,3 +89,38 @@ Desktop.ini
 cache.json
 cache/
 *.cache
+
+# Test artifacts and screenshots
+# Generated during testing and can be regenerated
+tests/screenshots/*.png
+test_*.png
+*.png
+
+# Large data files
+# Data files that should not be in version control
+*.nc4
+*.shp
+*.shx
+*.dbf
+*.prj
+10m_cultural/
+data/nc4/
+data/geojson/
+
+# Test and sample HTML files
+# Generated HTML files for testing
+test_*.html
+*.html.bak
+samples/
+
+# Development documentation
+# Task tracking and development notes
+PHASE1_TASKS.txt
+IMPLEMENTATION_SUMMARY.md
+TASK*_REPORT.md
+docs/development/
+
+# Temporary files
+# OS and editor temporary files
+*.txt~
+新規 テキスト ドキュメント.txt
