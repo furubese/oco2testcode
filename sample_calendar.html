@@ -566,28 +566,54 @@
             };
 
             try {
-              // Flask APIへPOSTリクエストを送信
-              const response = await fetch('http://localhost:5000/api/reasoning', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(apiData)
-              });
+              // タイムアウト設定: 30秒
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-              if (!response.ok) {
-                throw new Error(`API呼び出し失敗: ${response.status} ${response.statusText}`);
+              try {
+                // Flask APIへPOSTリクエストを送信
+                const response = await fetch('http://localhost:5000/api/reasoning', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(apiData),
+                  signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                // HTTPステータスコードのチェック
+                if (!response.ok) {
+                  let errorMessage = 'サーバーエラーが発生しました。';
+
+                  if (response.status >= 500) {
+                    errorMessage = 'サーバー内部エラーが発生しました。しばらく待ってから再度お試しください。';
+                  } else if (response.status === 404) {
+                    errorMessage = 'APIエンドポイントが見つかりません。サーバー設定を確認してください。';
+                  } else if (response.status === 400) {
+                    errorMessage = 'リクエストデータに問題があります。';
+                  } else if (response.status === 401 || response.status === 403) {
+                    errorMessage = 'APIの認証に失敗しました。';
+                  }
+
+                  throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                console.log('API Response:', result);
+
+                // ローディングを非表示
+                loadingIndicator.style.display = 'none';
+
+                // APIレスポンスを使用してサイドパネルのコンテンツを生成
+                const content = generateSidePanelContentWithAPI(props, coords, result);
+                contentArea.innerHTML = content;
+
+              } catch (fetchError) {
+                clearTimeout(timeoutId);
+                throw fetchError;
               }
-
-              const result = await response.json();
-              console.log('API Response:', result);
-
-              // ローディングを非表示
-              loadingIndicator.style.display = 'none';
-
-              // APIレスポンスを使用してサイドパネルのコンテンツを生成
-              const content = generateSidePanelContentWithAPI(props, coords, result);
-              contentArea.innerHTML = content;
 
             } catch (error) {
               console.error('API呼び出しエラー:', error);
@@ -595,9 +621,36 @@
               // ローディングを非表示
               loadingIndicator.style.display = 'none';
 
-              // エラー時は従来のコンテンツを表示
+              // エラーメッセージの生成
+              let errorMessage = '';
+              let errorTitle = '';
+
+              if (error.name === 'AbortError') {
+                // タイムアウトエラー
+                errorTitle = 'タイムアウトエラー';
+                errorMessage = 'サーバーの応答に時間がかかりすぎています（30秒超過）。ネットワーク接続を確認するか、しばらく待ってから再度お試しください。';
+              } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('fetch')) {
+                // ネットワークエラー（サーバー未起動など）
+                errorTitle = 'ネットワークエラー';
+                errorMessage = 'サーバーに接続できませんでした。Flaskサーバーが起動しているか確認してください。';
+              } else {
+                // その他のエラー（APIエラーなど）
+                errorTitle = 'エラー';
+                errorMessage = error.message || 'AI推論サービスでエラーが発生しました。';
+              }
+
+              // エラー時は基本情報を表示
               const content = generateSidePanelContent(props, coords);
-              contentArea.innerHTML = content + '<div style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 13px;">⚠️ AI推論サービスに接続できませんでした。Flaskサーバーが起動しているか確認してください。</div>';
+              const errorBox = `
+                <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #f5c6cb;">
+                  <h4 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 600;">⚠️ ${errorTitle}</h4>
+                  <p style="margin: 0; font-size: 13px; line-height: 1.5;">${errorMessage}</p>
+                  <p style="margin: 10px 0 0 0; font-size: 12px; color: #856404; background-color: #fff3cd; padding: 8px; border-radius: 4px;">
+                    💡 別のマーカーをクリックして再度お試しください。
+                  </p>
+                </div>
+              `;
+              contentArea.innerHTML = content + errorBox;
             }
           });
         }

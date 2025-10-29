@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>エラーハンドリングテスト</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    .test-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      background: #007bff;
+      color: white;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      font-size: 13px;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .loading {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+  </style>
+</head>
+<body>
+  <h1>エラーハンドリングテスト</h1>
+
+  <div class="test-section">
+    <h2>1. ネットワークエラーテスト (サーバー未起動)</h2>
+    <p>Flask サーバーが停止している状態でテスト</p>
+    <button onclick="testNetworkError()">ネットワークエラーをテスト</button>
+    <div id="networkResult" class="result" style="display:none;"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>2. タイムアウトテスト (30秒)</h2>
+    <p>サーバーが応答に30秒以上かかる場合のテスト（モックアップ）</p>
+    <button onclick="testTimeout()">タイムアウトをテスト</button>
+    <div id="timeoutResult" class="result" style="display:none;"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>3. API正常動作テスト</h2>
+    <p>Flask サーバーが起動している状態でテスト</p>
+    <button onclick="testNormalAPI()">正常なAPIをテスト</button>
+    <div id="normalResult" class="result" style="display:none;"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>4. 404エラーテスト</h2>
+    <p>存在しないエンドポイントへのリクエスト</p>
+    <button onclick="test404Error()">404エラーをテスト</button>
+    <div id="error404Result" class="result" style="display:none;"></div>
+  </div>
+
+  <script>
+    // ネットワークエラーテスト（無効なポートに接続）
+    async function testNetworkError() {
+      const resultDiv = document.getElementById('networkResult');
+      resultDiv.style.display = 'block';
+      resultDiv.className = 'result loading';
+      resultDiv.textContent = 'テスト実行中...';
+
+      try {
+        // タイムアウト設定: 30秒
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        try {
+          // 存在しないポートに接続してネットワークエラーを発生させる
+          const response = await fetch('http://localhost:9999/api/reasoning', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              lat: 35.0,
+              lon: 135.0,
+              co2: 420.5,
+              deviation: 5.0,
+              date: '2023-06-01',
+              severity: 'high',
+              zscore: 3.5
+            }),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+          }
+
+          resultDiv.className = 'result success';
+          resultDiv.textContent = '予期せず成功しました（このテストは失敗を期待しています）';
+
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          throw fetchError;
+        }
+
+      } catch (error) {
+        let errorMessage = '';
+        let errorTitle = '';
+
+        if (error.name === 'AbortError') {
+          errorTitle = 'タイムアウトエラー';
+          errorMessage = 'サーバーの応答に時間がかかりすぎています（30秒超過）。';
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('fetch')) {
+          errorTitle = 'ネットワークエラー';
+          errorMessage = 'サーバーに接続できませんでした。Flaskサーバーが起動しているか確認してください。';
+        } else {
+          errorTitle = 'エラー';
+          errorMessage = error.message;
+        }
+
+        resultDiv.className = 'result error';
+        resultDiv.textContent = `✓ テスト成功\n${errorTitle}: ${errorMessage}`;
+      }
+    }
+
+    // タイムアウトテスト（AbortControllerのテスト）
+    async function testTimeout() {
+      const resultDiv = document.getElementById('timeoutResult');
+      resultDiv.style.display = 'block';
+      resultDiv.className = 'result loading';
+      resultDiv.textContent = 'テスト実行中（1秒でタイムアウト）...';
+
+      try {
+        // 1秒のタイムアウトを設定
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
+
+        try {
+          // 正常なエンドポイントだが、1秒でタイムアウト
+          const response = await fetch('http://localhost:5000/api/reasoning', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              lat: 35.0,
+              lon: 135.0,
+              co2: 420.5,
+              deviation: 5.0,
+              date: '2023-06-01',
+              severity: 'high',
+              zscore: 3.5
+            }),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          resultDiv.className = 'result error';
+          resultDiv.textContent = '✗ テスト失敗: タイムアウトしませんでした（サーバーの応答が速すぎます）';
+
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          throw fetchError;
+        }
+
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = `✓ テスト成功\nタイムアウトエラー: サーバーの応答に時間がかかりすぎています（1秒超過）。`;
+        } else {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = `✗ テスト失敗: 予期しないエラー - ${error.message}`;
+        }
+      }
+    }
+
+    // 正常動作テスト
+    async function testNormalAPI() {
+      const resultDiv = document.getElementById('normalResult');
+      resultDiv.style.display = 'block';
+      resultDiv.className = 'result loading';
+      resultDiv.textContent = 'テスト実行中...';
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        try {
+          const response = await fetch('http://localhost:5000/api/reasoning', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              lat: 35.0,
+              lon: 135.0,
+              co2: 420.5,
+              deviation: 5.0,
+              date: '2023-06-01',
+              severity: 'high',
+              zscore: 3.5
+            }),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          resultDiv.className = 'result success';
+          resultDiv.textContent = `✓ テスト成功\nレスポンス:\n${JSON.stringify(result, null, 2).substring(0, 200)}...`;
+
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          throw fetchError;
+        }
+
+      } catch (error) {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = `✗ テスト失敗: ${error.message}`;
+      }
+    }
+
+    // 404エラーテスト
+    async function test404Error() {
+      const resultDiv = document.getElementById('error404Result');
+      resultDiv.style.display = 'block';
+      resultDiv.className = 'result loading';
+      resultDiv.textContent = 'テスト実行中...';
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        try {
+          // 存在しないエンドポイント
+          const response = await fetch('http://localhost:5000/api/nonexistent', {
+            method: 'GET',
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            let errorMessage = 'サーバーエラーが発生しました。';
+
+            if (response.status >= 500) {
+              errorMessage = 'サーバー内部エラーが発生しました。';
+            } else if (response.status === 404) {
+              errorMessage = 'APIエンドポイントが見つかりません。';
+            }
+
+            throw new Error(errorMessage);
+          }
+
+          resultDiv.className = 'result error';
+          resultDiv.textContent = '✗ テスト失敗: 404エラーが発生しませんでした';
+
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          throw fetchError;
+        }
+
+      } catch (error) {
+        if (error.message.includes('APIエンドポイントが見つかりません')) {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = `✓ テスト成功\nエラー: ${error.message}`;
+        } else {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = `エラー: ${error.message}`;
+        }
+      }
+    }
+  </script>
+</body>
+</html>
