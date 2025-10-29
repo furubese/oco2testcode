@@ -7,11 +7,12 @@ AI搭載のCO₂濃度異常値分析システムです。OCO-2衛星データ�
 このプロジェクトは、地球観測衛星OCO-2から収集されたCO₂濃度データの異常値を可視化し、AI（Google Gemini）を使って異常値の原因を分析するWebアプリケーションです。
 
 **主な機能:**
-- 時系列でCO₂異常値データを表示（2020年～2025年）
+- 時系列でCO₂異常値データを表示（2020年12月、2021年3月、2023年1-10月）
 - インタラクティブな地図インターフェース（Leaflet.js）
-- マーカークリックによる詳細情報表示
+- マーカークリックによる詳細情報表示（サイドパネル）
 - Gemini APIによる原因推論（産業活動、交通、気象、地理的要因など）
-- JSONキャッシュによるAPI呼び出し最適化
+- JSONキャッシュによるAPI呼び出し最適化（SHA256ハッシュベース）
+- Flask統合サーバー（静的ファイル配信 + REST API）
 
 **Phase 1の目的:**
 - ローカル環境でのプロトタイプ開発
@@ -87,11 +88,15 @@ cp .env.example .env
 
 ```env
 # Gemini API Configuration
+# Get your API key from: https://makersuite.google.com/app/apikey
 GEMINI_API_KEY=your_api_key_here  # ここにAPIキーを貼り付け
 
 # Flask Server Configuration
+# Port number for the Flask API server (default: 5000)
 FLASK_PORT=5000
 ```
+
+**注意:** 現在、`app.py` は `.env` の `FLASK_PORT` を使用せず、ハードコードされた5000番ポートを使用します。ポートを変更したい場合は `app.py:215` の `port=5000` を直接編集してください。
 
 ### 4. Flaskサーバーの起動
 
@@ -112,36 +117,38 @@ WARNING: This is a development server. Do not use it in a production deployment.
 
 ### 5. ブラウザでアプリケーションを開く
 
-1. ブラウザで `sample_calendar.html` ファイルを開きます
-2. ファイルエクスプローラーで `sample_calendar.html` をダブルクリック
-3. または、ブラウザに直接ドラッグ&ドロップ
+1. ブラウザを開く
+2. アドレスバーに `http://localhost:5000` を入力
+3. Flaskサーバーが自動的に `sample_calendar.html` を配信します
 
-**ファイルパスの例:**
-```
-file:///C:/Users/YourName/project/sample_calendar.html
-```
+**注意:** Flaskサーバーは静的ファイルとAPIの両方を提供します。ブラウザから直接HTMLファイルを開くのではなく、必ず `http://localhost:5000` を通じてアクセスしてください。
 
 ## 使い方
 
 ### 基本操作
 
-1. **年月の選択**
+1. **アプリケーションへのアクセス**
+   - ブラウザで `http://localhost:5000` にアクセス
+   - Flaskサーバーが自動的に `sample_calendar.html` を配信します
+
+2. **年月の選択**
    - 画面左上のドロップダウンメニューから年（2020～2025）と月（1～12月）を選択
+   - 利用可能なデータ: 2020年12月、2021年3月、2023年1-10月
    - データが自動的に読み込まれ、地図上にマーカーが表示されます
 
-2. **地図の操作**
+3. **地図の操作**
    - **ドラッグ**: 地図を移動
    - **スクロール/ピンチ**: ズームイン/ズームアウト
    - **マーカーホバー**: マーカーが拡大表示
 
-3. **マーカーのクリック**
+4. **マーカーのクリック**
    - マーカーをクリックすると、右側にサイドパネルが開きます
    - **ローディング表示**: Gemini APIが推論を実行中（数秒間）
    - **推論結果表示**: AI が分析した原因が表示されます
 
-4. **サイドパネルの情報**
+5. **サイドパネルの情報**
    - **CO₂濃度**: 測定値（ppm）とレベル評価
-   - **位置情報**: 緯度・経度
+   - **位置情報**: 緯度・経度・観測日
    - **測定データ**: 基準値、偏差、Z-Score
    - **異常検出情報**: 異常度、検出日数
    - **AI原因推論**: Geminiによる詳細分析
@@ -219,9 +226,13 @@ cache.json  # プロジェクトルートに自動生成
 
 **原因と対処法:**
 - **GeoJSONファイルが存在しない**
-  - プロジェクトディレクトリに `anomalies202306.geojson` などのファイルがあるか確認
+  - `data/geojson/` ディレクトリに `anomalies202306.geojson` などのファイルがあるか確認
+  - 利用可能なデータ: 2020年12月、2021年3月、2023年1-10月のみ
+- **Flaskサーバーが起動していない**
+  - `python app.py` でサーバーを起動してください
+  - `http://localhost:5000` でアクセスできることを確認
 - **ファイル名の不一致**
-  - 例: 2023年6月のデータは `anomalies202306.geojson`
+  - 例: 2023年6月のデータは `data/geojson/anomalies202306.geojson`
 - **ブラウザコンソールでエラー確認**
   - F12キー → Console タブ → エラーメッセージを確認
 
@@ -230,10 +241,14 @@ cache.json  # プロジェクトルートに自動生成
 **症状:** ブラウザコンソールに「CORS policy」エラー
 
 **原因と対処法:**
+- **HTMLファイルを直接ブラウザで開いている**
+  - ✗ 間違い: `file:///C:/Users/.../sample_calendar.html`
+  - ✓ 正解: `http://localhost:5000` でアクセス
+  - Flaskサーバーを経由してアクセスする必要があります
 - **Flaskサーバーが起動していない**
   - `python app.py` でサーバーを起動
 - **CORSが正しく設定されていない**
-  - `app.py:5-6`で `flask-cors` が正しくインポートされているか確認:
+  - `app.py:22`で `flask-cors` が正しく設定されているか確認:
     ```python
     from flask_cors import CORS
     CORS(app)
@@ -252,6 +267,12 @@ A: 一度キャッシュされたデータはオフラインでも閲覧可能�
 
 **Q: 複数の地点を同時に分析できますか？**
 A: はい。複数のマーカーを順番にクリックして分析できます。キャッシュにより2回目以降は高速です。
+
+**Q: なぜブラウザから直接HTMLファイルを開けないのですか？**
+A: このアプリはFlaskサーバーを通じてGeoJSONファイルとAPI推論を提供します。`file://` プロトコルではCORSエラーが発生するため、必ず `http://localhost:5000` でアクセスしてください。
+
+**Q: 利用可能なデータの期間は？**
+A: 現在、2020年12月、2021年3月、2023年1-10月のデータが利用可能です。他の期間のデータは `data/geojson/` ディレクトリに追加することで利用できます。
 
 ## Phase 2への移行準備
 
@@ -337,21 +358,38 @@ Phase 1のJSONキャッシュはDynamoDBと互換性があります:
 
 ```
 project/
-├── app.py                    # Flaskメインサーバー
+├── app.py                    # Flaskメインサーバー（静的ファイル配信 + API）
 ├── cache_manager.py          # JSONキャッシュ管理
 ├── gemini_client.py          # Gemini API呼び出し
 ├── requirements.txt          # Python依存関係
+├── package.json              # Node.js依存関係（Playwrightテスト用）
 ├── .env                      # 環境変数（要作成、gitignore対象）
 ├── .env.example              # 環境変数テンプレート
 ├── .gitignore                # Git除外設定
+├── Dockerfile                # Dockerコンテナ設定
 ├── cache.json                # キャッシュデータ（自動生成、gitignore対象）
 ├── sample_calendar.html      # メインアプリケーション
 ├── README.md                 # このファイル
-├── PHASE1_TASKS.txt          # タスクリスト
-├── anomalies202012.geojson   # CO₂データ（2020年12月）
-├── anomalies202103.geojson   # CO₂データ（2021年3月）
-├── anomalies202301.geojson   # CO₂データ（2023年1月）
-└── ...                       # その他のGeoJSONファイル
+├── TEST_RESULTS.md           # エンドツーエンドテスト結果
+├── data/
+│   ├── geojson/              # GeoJSONデータファイル
+│   │   ├── anomalies202012.geojson   # 2020年12月
+│   │   ├── anomalies202103.geojson   # 2021年3月
+│   │   ├── anomalies202301.geojson   # 2023年1月
+│   │   ├── anomalies202302-202310.geojson # 2023年2-10月
+│   │   ├── countries.geojson         # 国境データ
+│   │   └── countries_minimal.geojson # 簡略版国境データ
+│   ├── nc4/                  # NetCDF4形式の生データ
+│   └── 10m_cultural/         # Natural Earthの地理データ
+├── tests/                    # テストファイル
+│   ├── e2e_test.py           # エンドツーエンドテスト
+│   ├── test_api_errors.py
+│   ├── test_cache_manager.py
+│   ├── test_gemini_client.py
+│   └── ...
+├── docs/                     # ドキュメント
+├── scripts/                  # ユーティリティスクリプト
+└── node_modules/             # Node.js依存関係（自動生成）
 ```
 
 ## 技術スタック
@@ -363,13 +401,19 @@ project/
 
 ### バックエンド
 - **Python 3.8+**
-- **Flask 3.0**: Webフレームワーク
-- **Flask-CORS 4.0**: クロスオリジンリクエスト対応
-- **Google Generative AI 0.3**: Gemini API クライアント
+- **Flask 3.0+**: Webフレームワーク（静的ファイル配信 + REST API）
+- **Flask-CORS 4.0+**: クロスオリジンリクエスト対応
+- **Google Generative AI 0.3+**: Gemini API クライアント
+- **python-dotenv 1.0+**: 環境変数管理
+
+### テスト
+- **Playwright 1.56+**: ブラウザE2Eテスト（Node.js）
+- **pytest**: Pythonユニットテスト
 
 ### データ形式
-- **GeoJSON**: 地理空間データ
-- **JSON**: キャッシュデータ
+- **GeoJSON**: 地理空間データ（CO₂異常値、国境線）
+- **JSON**: キャッシュデータ（API推論結果）
+- **NetCDF4**: 衛星観測データ（生データ、処理前）
 
 ## ライセンス
 
@@ -410,17 +454,40 @@ python test_completion_criteria.py
 
 ### デバッグモード
 
-`app.py:87-88`でFlaskのデバッグモードが有効になっています:
+`app.py:214-218`でFlaskのデバッグモードが有効になっています:
 ```python
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(
+        host='0.0.0.0',
+        port=5000,
+        debug=True
+    )
 ```
 
-コードの変更が自動的に反映されます。
+デバッグモードの特徴:
+- コードの変更が自動的に反映されます
+- エラー発生時に詳細なスタックトレースが表示されます
+- 本番環境では必ず `debug=False` に設定してください
 
 ### APIエンドポイント
 
-**POST /api/reasoning**
+**GET /** - メインアプリケーション配信
+- `sample_calendar.html` を配信
+
+**GET /<path:filename>** - 静的ファイル配信
+- GeoJSONファイル: `data/geojson/` から提供
+- その他の静的ファイル: プロジェクトルートから提供
+
+**GET /api/health** - ヘルスチェック
+```json
+{
+  "status": "ok",
+  "message": "Flask API Server is running",
+  "endpoints": [...]
+}
+```
+
+**POST /api/reasoning** - AI推論エンドポイント
 
 リクエスト:
 ```json
@@ -429,7 +496,7 @@ if __name__ == '__main__':
   "lon": 139.6917,
   "co2": 418.45,
   "deviation": 6.45,
-  "date": "202306",
+  "date": "oco2_LtCO2_200901_B10206Ar.nc4",
   "severity": "high",
   "zscore": 3.2
 }
@@ -439,7 +506,8 @@ if __name__ == '__main__':
 ```json
 {
   "reasoning": "この地点では東京都心部に位置しており...",
-  "cached": false
+  "cached": false,
+  "cache_key": "sha256_hash_value"
 }
 ```
 
