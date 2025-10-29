@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CO₂ 濃度可視化マップ (Static)</title>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 60px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      min-width: 200px;
+    }
+
+    .controls h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      color: #333;
+    }
+
+    .controls button {
+      background: #007cba;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 5px;
+      margin-bottom: 5px;
+    }
+
+    .controls button:hover {
+      background: #005a87;
+    }
+
+    .controls .status {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    .legend {
+      position: absolute;
+      bottom: 30px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .legend h4 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      margin-right: 8px;
+      border: 1px solid #333;
+    }
+
+    .co2-popup {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .gradient-marker {
+      background: transparent !important;
+      border: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <h3>CO₂濃度可視化</h3>
+    <div class="status" id="status">準備完了</div>
+  </div>
+
+  <div class="legend">
+    <h4>CO₂濃度 (ppm)</h4>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #d73027;"></div>
+      <span>≥ 431 (非常に高い)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #fc8d59;"></div>
+      <span>430-431 (高い)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #fee08b;"></div>
+      <span>429-430 (やや高い)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #d9ef8b;"></div>
+      <span>428-429 (普通)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #91bfdb;"></div>
+      <span>< 428 (低い)</span>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- Leaflet JavaScript -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // グローバル変数
+    let map;
+    let co2Layer = null;
+
+    // マップ初期化
+    function initMap() {
+      try {
+        map = L.map('map', {
+          worldCopyJump: false,
+          maxBounds: null,
+          maxBoundsViscosity: 0.0
+        }).setView([35, 135], 2);
+
+        // OpenStreetMap タイル追加
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          maxZoom: 18,
+          noWrap: false
+        }).addTo(map);
+
+        // マップ移動時のイベントリスナー追加
+        let isAdjusting = false; // 無限ループ防止フラグ
+        map.on('moveend', function() {
+          if (isAdjusting) return;
+
+          const center = map.getCenter();
+          const lng = center.lng;
+
+          // 経度が±180度を大きく超えたら、マップ中心を調整
+          if (lng > 180 || lng < -180) {
+            isAdjusting = true;
+            let newLng = lng;
+            while (newLng > 180) newLng -= 360;
+            while (newLng < -180) newLng += 360;
+
+            map.setView([center.lat, newLng], map.getZoom(), { animate: false });
+
+            setTimeout(function() {
+              isAdjusting = false;
+            }, 100);
+          }
+        });
+
+        updateStatus('マップ初期化完了');
+        loadSampleData();
+      } catch (error) {
+        console.error('Map initialization failed:', error);
+        updateStatus('マップ初期化に失敗');
+      }
+    }
+
+    // ステータス更新
+    function updateStatus(message) {
+      const statusElement = document.getElementById('status');
+      if (statusElement) {
+        statusElement.textContent = message;
+      }
+    }
+
+    // CO2濃度に基づく色分け関数
+    function getCO2Color(co2) {
+      if (co2 >= 431) return '#d73027';      // 赤 - 非常に高い
+      else if (co2 >= 430) return '#fc8d59'; // オレンジ - 高い
+      else if (co2 >= 429) return '#fee08b'; // 黄色 - やや高い
+      else if (co2 >= 428) return '#d9ef8b'; // 薄緑 - 普通
+      else return '#91bfdb';                 // 青 - 低い
+    }
+
+
+    // CO2データをマップに追加
+    function addCO2DataToMap(geoJsonData) {
+      if (!map) {
+        updateStatus('マップが初期化されていません');
+        return;
+      }
+
+      // 既存のレイヤーを削除
+      if (co2Layer) {
+        map.removeLayer(co2Layer);
+      }
+
+      // マーカーを複製して世界地図のループに対応
+      const expandedFeatures = [];
+      geoJsonData.features.forEach(feature => {
+        const coords = feature.geometry.coordinates;
+        // 元の位置
+        expandedFeatures.push(feature);
+        // 西側の複製 (-360)
+        expandedFeatures.push({
+          ...feature,
+          geometry: {
+            ...feature.geometry,
+            coordinates: [coords[0] - 360, coords[1]]
+          }
+        });
+        // 東側の複製 (+360)
+        expandedFeatures.push({
+          ...feature,
+          geometry: {
+            ...feature.geometry,
+            coordinates: [coords[0] + 360, coords[1]]
+          }
+        });
+      });
+
+      const expandedData = {
+        type: 'FeatureCollection',
+        features: expandedFeatures
+      };
+
+      co2Layer = L.geoJSON(expandedData, {
+        pointToLayer: function(feature, latlng) {
+          const co2 = feature.properties.xco2;
+          const deviation = feature.properties.deviation_ppm;
+          const color = getCO2Color(co2);
+
+          // 偏差(deviation_ppm)に応じて円のサイズを変更
+          // 10ppm未満: 小, 10-20ppm: 中, 20-30ppm: 大, 30ppm以上: 特大
+          let radius = 12;  // デフォルト
+          if (deviation >= 40) radius = 40;       // 40ppm以上: 特大
+          else if (deviation >= 30) radius = 30;  // 30-40ppm: 超大
+          else if (deviation >= 20) radius = 20;  // 20-30ppm: 大
+          else if (deviation >= 15) radius = 15;  // 15-20ppm: 中大
+          else if (deviation >= 10) radius = 10;  // 10-15ppm: 中
+          else radius = 5;                       // 10ppm未満: 小
+
+          // グラデーション円をDivIconで作成
+          const size = radius * 2;
+          const icon = L.divIcon({
+            className: 'gradient-marker',
+            html: '<div style="width: ' + size + 'px; height: ' + size + 'px; ' +
+                  'border-radius: 50%; ' +
+                  'background: radial-gradient(circle, ' + color + ' 0%, ' + color + '99 40%, transparent 70%); ' +
+                  'transform: translate(-50%, -50%);"></div>',
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2]
+          });
+
+          return L.marker(latlng, { icon: icon });
+        },
+        onEachFeature: function(feature, layer) {
+          const props = feature.properties;
+          const co2Value = props.xco2;
+          const uncertainty = props.xco2_uncertainty;
+          const severity = props.severity || 'unknown';
+          const zscore = props.zscore;
+          const deviation = props.deviation_ppm;
+          const baseline = props.baseline_mean;
+          const detectionDays = props.detection_days;
+          const detectionFiles = props.detection_files || [];
+
+          // 異常度の日本語表記
+          let severityText = '';
+          if (severity === 'high') severityText = '高';
+          else if (severity === 'medium') severityText = '中';
+          else if (severity === 'low') severityText = '低';
+          else severityText = severity;
+
+          // ランク判定
+          let rank = '';
+          if (co2Value >= 431) rank = '非常に高い';
+          else if (co2Value >= 430) rank = '高い';
+          else if (co2Value >= 429) rank = 'やや高い';
+          else if (co2Value >= 428) rank = '普通';
+          else rank = '低い';
+
+          // 緯度経度を取得
+          const coords = feature.geometry.coordinates;
+          const lon = coords[0].toFixed(4);
+          const lat = coords[1].toFixed(4);
+
+          layer.bindPopup(
+            '<div class="co2-popup">' +
+            '<h4 style="margin: 0 0 8px 0; color: ' + getCO2Color(co2Value) + ';">CO₂濃度: ' + co2Value.toFixed(2) + ' ppm</h4>' +
+            '<div style="margin-bottom: 4px;"><strong>緯度:</strong> ' + lat + '°</div>' +
+            '<div style="margin-bottom: 4px;"><strong>経度:</strong> ' + lon + '°</div>' +
+            '<div style="margin-bottom: 4px;"><strong>不確実性:</strong> ±' + uncertainty.toFixed(2) + ' ppm</div>' +
+            '<div style="margin-bottom: 4px;"><strong>異常度:</strong> ' + severityText + '</div>' +
+            '<div style="margin-bottom: 4px;"><strong>検出日数:</strong> ' + detectionDays + '日</div>' +
+            '<div style="margin-bottom: 4px;"><strong>基準値:</strong> ' + baseline.toFixed(2) + ' ppm</div>' +
+            '<div style="margin-bottom: 4px;"><strong>偏差:</strong> +' + deviation.toFixed(2) + ' ppm</div>' +
+            '<div style="margin-bottom: 4px;"><strong>Z-Score:</strong> ' + zscore.toFixed(2) + '</div>' +
+            '<div style="font-size: 11px; color: #666; margin-top: 8px;"><strong>検出ファイル数:</strong> ' + detectionFiles.length + '個</div>' +
+            '</div>',
+            {
+              maxWidth: 320
+            }
+          );
+
+          // 元のサイズを計算して保存（偏差に基づく）
+          const color = getCO2Color(co2Value);
+          let radius = 12;
+          if (deviation >= 40) radius = 40;
+          else if (deviation >= 30) radius = 30;
+          else if (deviation >= 20) radius = 20;
+          else if (deviation >= 15) radius = 15;
+          else if (deviation >= 10) radius = 10;
+          else radius = 5;
+
+          const originalSize = radius * 2;
+          const hoverSize = originalSize + 8;
+
+          // ホバー状態を管理
+          let isHovered = false;
+
+          // ホバー効果
+          layer.on('mouseover', function(e) {
+            if (isHovered) return; // 既にホバー中なら何もしない
+            isHovered = true;
+
+            const newIcon = L.divIcon({
+              className: 'gradient-marker',
+              html: '<div style="width: ' + hoverSize + 'px; height: ' + hoverSize + 'px; ' +
+                    'border-radius: 50%; ' +
+                    'background: radial-gradient(circle, ' + color + ' 0%, ' + color + '99 40%, transparent 70%); ' +
+                    'transform: translate(-50%, -50%);"></div>',
+              iconSize: [hoverSize, hoverSize],
+              iconAnchor: [hoverSize / 2, hoverSize / 2]
+            });
+            this.setIcon(newIcon);
+          });
+
+          layer.on('mouseout', function(e) {
+            if (!isHovered) return; // ホバー中でなければ何もしない
+            isHovered = false;
+
+            const originalIcon = L.divIcon({
+              className: 'gradient-marker',
+              html: '<div style="width: ' + originalSize + 'px; height: ' + originalSize + 'px; ' +
+                    'border-radius: 50%; ' +
+                    'background: radial-gradient(circle, ' + color + ' 0%, ' + color + '99 40%, transparent 70%); ' +
+                    'transform: translate(-50%, -50%);"></div>',
+              iconSize: [originalSize, originalSize],
+              iconAnchor: [originalSize / 2, originalSize / 2]
+            });
+            this.setIcon(originalIcon);
+          });
+        }
+      }).addTo(map);
+
+      updateStatus(geoJsonData.features.length + '件のCO₂データを表示中');
+    }
+
+    // 埋め込みデータ
+    const embeddedData = {
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.97017669677734,
+          32.70695877075195
+        ]
+      },
+      "properties": {
+        "xco2": 453.3218688964844,
+        "xco2_uncertainty": 2.284247398376465,
+        "baseline_mean": 416.8946228027344,
+        "baseline_std": 4.826019287109375,
+        "zscore": 7.548093795776367,
+        "deviation_ppm": 36.42724609375,
+        "source_file": "oco3_LtCO2_230623_B11072Ar_240915220931s.nc4",
+        "severity": "high",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230607_B11072Ar_240915220810s.nc4",
+          "oco3_LtCO2_230619_B11072Ar_240915220919s.nc4",
+          "oco3_LtCO2_230623_B11072Ar_240915220931s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.20452880859375,
+          50.97696304321289
+        ]
+      },
+      "properties": {
+        "xco2": 442.1886291503906,
+        "xco2_uncertainty": 1.0293517112731934,
+        "baseline_mean": 416.902099609375,
+        "baseline_std": 3.4131743907928467,
+        "zscore": 7.408507823944092,
+        "deviation_ppm": 25.286529541015625,
+        "source_file": "oco3_LtCO2_230628_B11072Ar_240915220937s.nc4",
+        "severity": "high",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230602_B11072Ar_240915220805s.nc4",
+          "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+          "oco3_LtCO2_230628_B11072Ar_240915220937s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.93878936767578,
+          32.712547302246094
+        ]
+      },
+      "properties": {
+        "xco2": 447.6204528808594,
+        "xco2_uncertainty": 1.9132490158081055,
+        "baseline_mean": 416.8946228027344,
+        "baseline_std": 4.826019287109375,
+        "zscore": 6.366702556610107,
+        "deviation_ppm": 30.725830078125,
+        "source_file": "oco3_LtCO2_230623_B11072Ar_240915220931s.nc4",
+        "severity": "high",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230607_B11072Ar_240915220810s.nc4",
+          "oco3_LtCO2_230619_B11072Ar_240915220919s.nc4",
+          "oco3_LtCO2_230623_B11072Ar_240915220931s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.19600677490234,
+          50.99116516113281
+        ]
+      },
+      "properties": {
+        "xco2": 437.0694274902344,
+        "xco2_uncertainty": 1.0785117149353027,
+        "baseline_mean": 416.902099609375,
+        "baseline_std": 3.4131743907928467,
+        "zscore": 5.908671855926514,
+        "deviation_ppm": 20.167327880859375,
+        "source_file": "oco3_LtCO2_230628_B11072Ar_240915220937s.nc4",
+        "severity": "high",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230602_B11072Ar_240915220805s.nc4",
+          "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+          "oco3_LtCO2_230628_B11072Ar_240915220937s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.21308898925781,
+          50.962772369384766
+        ]
+      },
+      "properties": {
+        "xco2": 436.6112365722656,
+        "xco2_uncertainty": 1.0620378255844116,
+        "baseline_mean": 416.902099609375,
+        "baseline_std": 3.4131743907928467,
+        "zscore": 5.774430274963379,
+        "deviation_ppm": 19.709136962890625,
+        "source_file": "oco3_LtCO2_230628_B11072Ar_240915220937s.nc4",
+        "severity": "high",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230602_B11072Ar_240915220805s.nc4",
+          "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+          "oco3_LtCO2_230628_B11072Ar_240915220937s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          70.72735595703125,
+          38.134891510009766
+        ]
+      },
+      "properties": {
+        "xco2": 437.4007873535156,
+        "xco2_uncertainty": 2.4708776473999023,
+        "baseline_mean": 415.76995849609375,
+        "baseline_std": 4.00913667678833,
+        "zscore": 5.395383358001709,
+        "deviation_ppm": 21.630828857421875,
+        "source_file": "oco3_LtCO2_230608_B11072Ar_240915220815s.nc4",
+        "severity": "high",
+        "detection_days": 4,
+        "detection_files": [
+          "oco3_LtCO2_230604_B11072Ar_240915220807s.nc4",
+          "oco3_LtCO2_230608_B11072Ar_240915220815s.nc4",
+          "oco3_LtCO2_230615_B11072Ar_240915220833s.nc4",
+          "oco3_LtCO2_230630_B11072Ar_240915220939s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          51.340675354003906,
+          35.40729522705078
+        ]
+      },
+      "properties": {
+        "xco2": 434.08636474609375,
+        "xco2_uncertainty": 0.9956551194190979,
+        "baseline_mean": 418.9380187988281,
+        "baseline_std": 3.020199775695801,
+        "zscore": 5.015676975250244,
+        "deviation_ppm": 15.148345947265625,
+        "source_file": "oco3_LtCO2_230613_B11072Ar_240915220833s.nc4",
+        "severity": "high",
+        "detection_days": 7,
+        "detection_files": [
+          "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+          "oco3_LtCO2_230609_B11072Ar_240915220817s.nc4",
+          "oco3_LtCO2_230613_B11072Ar_240915220833s.nc4",
+          "oco3_LtCO2_230615_B11072Ar_240915220833s.nc4",
+          "oco3_LtCO2_230619_B11072Ar_240915220919s.nc4",
+          "oco3_LtCO2_230623_B11072Ar_240915220931s.nc4",
+          "oco3_LtCO2_230627_B11072Ar_240915220936s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          70.71851348876953,
+          38.14822769165039
+        ]
+      },
+      "properties": {
+        "xco2": 435.5617370605469,
+        "xco2_uncertainty": 2.399916648864746,
+        "baseline_mean": 415.76995849609375,
+        "baseline_std": 4.00913667678833,
+        "zscore": 4.936668395996094,
+        "deviation_ppm": 19.791778564453125,
+        "source_file": "oco3_LtCO2_230608_B11072Ar_240915220815s.nc4",
+        "severity": "medium",
+        "detection_days": 4,
+        "detection_files": [
+          "oco3_LtCO2_230604_B11072Ar_240915220807s.nc4",
+          "oco3_LtCO2_230608_B11072Ar_240915220815s.nc4",
+          "oco3_LtCO2_230615_B11072Ar_240915220833s.nc4",
+          "oco3_LtCO2_230630_B11072Ar_240915220939s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.94261169433594,
+          35.441734313964844
+        ]
+      },
+      "properties": {
+        "xco2": 430.96807861328125,
+        "xco2_uncertainty": 0.5560750365257263,
+        "baseline_mean": 416.3857727050781,
+        "baseline_std": 3.0961174964904785,
+        "zscore": 4.709868431091309,
+        "deviation_ppm": 14.582305908203125,
+        "source_file": "oco3_LtCO2_230603_B11072Ar_240915220805s.nc4",
+        "severity": "medium",
+        "detection_days": 4,
+        "detection_files": [
+          "oco3_LtCO2_230603_B11072Ar_240915220805s.nc4",
+          "oco3_LtCO2_230618_B11072Ar_240915220919s.nc4",
+          "oco3_LtCO2_230620_B11072Ar_240915220920s.nc4",
+          "oco3_LtCO2_230624_B11072Ar_240915220931s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          51.32862854003906,
+          35.417091369628906
+        ]
+      },
+      "properties": {
+        "xco2": 433.114501953125,
+        "xco2_uncertainty": 1.0061967372894287,
+        "baseline_mean": 418.9380187988281,
+        "baseline_std": 3.020199775695801,
+        "zscore": 4.693889141082764,
+        "deviation_ppm": 14.176483154296875,
+        "source_file": "oco3_LtCO2_230613_B11072Ar_240915220833s.nc4",
+        "severity": "medium",
+        "detection_days": 7,
+        "detection_files": [
+          "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+          "oco3_LtCO2_230609_B11072Ar_240915220817s.nc4",
+          "oco3_LtCO2_230613_B11072Ar_240915220833s.nc4",
+          "oco3_LtCO2_230615_B11072Ar_240915220833s.nc4",
+          "oco3_LtCO2_230619_B11072Ar_240915220919s.nc4",
+          "oco3_LtCO2_230623_B11072Ar_240915220931s.nc4",
+          "oco3_LtCO2_230627_B11072Ar_240915220936s.nc4"
+        ]
+      }
+    }
+  ]
+};
+
+    // データを読み込んで表示
+    function loadSampleData() {
+      try {
+        updateStatus('CO₂異常値データを読み込み中...');
+        console.log('Loaded CO2 anomaly data:', embeddedData.features.length, 'points');
+        addCO2DataToMap(embeddedData);
+        updateStatus('CO₂異常値データ表示完了 (' + embeddedData.features.length + '地点)');
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        updateStatus('データ読み込みエラー: ' + error.message);
+      }
+    }
+
+
+    // ページ読み込み時に初期化
+    window.addEventListener('load', function() {
+      // Leafletが読み込まれるまで少し待つ
+      setTimeout(function() {
+        if (typeof L !== 'undefined') {
+          initMap();
+        } else {
+          updateStatus('Leafletライブラリの読み込みに失敗');
+        }
+      }, 100);
+    });
+
+  </script>
+</body>
+</html>

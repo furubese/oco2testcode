@@ -1,0 +1,265 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -43.68632888793945,
+          -11.016897201538086
+        ]
+      },
+      "properties": {
+        "xco2": 421.9453125,
+        "xco2_uncertainty": 0.65488600730896,
+        "baseline_mean": 414.21893310546875,
+        "baseline_std": 1.9085148572921753,
+        "zscore": 4.048372745513916,
+        "deviation_ppm": 7.72637939453125,
+        "source_file": "oco3_LtCO2_230620_B11072Ar_240915220920s.nc4",
+        "severity": "medium",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230604_B11072Ar_240915220807s.nc4",
+          "oco3_LtCO2_230608_B11072Ar_240915220815s.nc4",
+          "oco3_LtCO2_230620_B11072Ar_240915220920s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          50.72319793701172,
+          46.98903274536133
+        ]
+      },
+      "properties": {
+        "xco2": 421.9197692871094,
+        "xco2_uncertainty": 0.6667466759681702,
+        "baseline_mean": 413.96551513671875,
+        "baseline_std": 2.4484498500823975,
+        "zscore": 3.248689889907837,
+        "deviation_ppm": 7.954254150390625,
+        "source_file": "oco3_LtCO2_230617_B11072Ar_240915220917s.nc4",
+        "severity": "medium",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230617_B11072Ar_240915220917s.nc4",
+          "oco3_LtCO2_230622_B11072Ar_240915220929s.nc4",
+          "oco3_LtCO2_230626_B11072Ar_240915220933s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.74520111083984,
+          50.99769973754883
+        ]
+      },
+      "properties": {
+        "xco2": 426.8722839355469,
+        "xco2_uncertainty": 1.4298328161239624,
+        "baseline_mean": 416.902099609375,
+        "baseline_std": 3.4131743907928467,
+        "zscore": 2.921088457107544,
+        "deviation_ppm": 9.970184326171875,
+        "source_file": "oco3_LtCO2_230628_B11072Ar_240915220937s.nc4",
+        "severity": "medium",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230602_B11072Ar_240915220805s.nc4",
+          "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+          "oco3_LtCO2_230628_B11072Ar_240915220937s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.44043731689453,
+          50.924110412597656
+        ]
+      },
+      "properties": {
+        "xco2": 424.7740173339844,
+        "xco2_uncertainty": 1.3785617351531982,
+        "baseline_mean": 417.5209045410156,
+        "baseline_std": 2.5543930530548096,
+        "zscore": 2.8394663333892822,
+        "deviation_ppm": 7.25311279296875,
+        "source_file": "oco3_LtCO2_230628_B11072Ar_240915220937s.nc4",
+        "severity": "medium",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230602_B11072Ar_240915220805s.nc4",
+          "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+          "oco3_LtCO2_230628_B11072Ar_240915220937s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.73543548583984,
+          48.39402389526367
+        ]
+      },
+      "properties": {
+        "xco2": 422.91180419921875,
+        "xco2_uncertainty": 0.49020281434059143,
+        "baseline_mean": 414.5482482910156,
+        "baseline_std": 3.12955379486084,
+        "zscore": 2.6724436283111572,
+        "deviation_ppm": 8.363555908203125,
+        "source_file": "oco3_LtCO2_230604_B11072Ar_240915220807s.nc4",
+        "severity": "medium",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230604_B11072Ar_240915220807s.nc4",
+          "oco3_LtCO2_230619_B11072Ar_240915220919s.nc4",
+          "oco3_LtCO2_230622_B11072Ar_240915220929s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          128.08363342285156,
+          48.316314697265625
+        ]
+      },
+      "properties": {
+        "xco2": 422.1730041503906,
+        "xco2_uncertainty": 0.7991182804107666,
+        "baseline_mean": 411.9940490722656,
+        "baseline_std": 3.9425947666168213,
+        "zscore": 2.5817909240722656,
+        "deviation_ppm": 10.178955078125,
+        "source_file": "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+        "severity": "medium",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+          "oco3_LtCO2_230613_B11072Ar_240915220833s.nc4",
+          "oco3_LtCO2_230617_B11072Ar_240915220917s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          89.84303283691406,
+          42.160369873046875
+        ]
+      },
+      "properties": {
+        "xco2": 422.9167175292969,
+        "xco2_uncertainty": 0.5941349267959595,
+        "baseline_mean": 414.24151611328125,
+        "baseline_std": 3.3703861236572266,
+        "zscore": 2.573948860168457,
+        "deviation_ppm": 8.675201416015625,
+        "source_file": "oco3_LtCO2_230610_B11072Ar_240915220819s.nc4",
+        "severity": "medium",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230602_B11072Ar_240915220805s.nc4",
+          "oco3_LtCO2_230610_B11072Ar_240915220819s.nc4",
+          "oco3_LtCO2_230623_B11072Ar_240915220931s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -55.98589324951172,
+          51.494998931884766
+        ]
+      },
+      "properties": {
+        "xco2": 422.8485107421875,
+        "xco2_uncertainty": 0.9003385305404663,
+        "baseline_mean": 416.8386535644531,
+        "baseline_std": 2.3426895141601562,
+        "zscore": 2.565366506576538,
+        "deviation_ppm": 6.009857177734375,
+        "source_file": "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+        "severity": "medium",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230604_B11072Ar_240915220807s.nc4",
+          "oco3_LtCO2_230605_B11072Ar_240915220808s.nc4",
+          "oco3_LtCO2_230620_B11072Ar_240915220920s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.73574829101562,
+          45.50107192993164
+        ]
+      },
+      "properties": {
+        "xco2": 422.6629333496094,
+        "xco2_uncertainty": 0.5947995781898499,
+        "baseline_mean": 413.43780517578125,
+        "baseline_std": 3.621411085128784,
+        "zscore": 2.5473849773406982,
+        "deviation_ppm": 9.225128173828125,
+        "source_file": "oco3_LtCO2_230604_B11072Ar_240915220807s.nc4",
+        "severity": "medium",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230604_B11072Ar_240915220807s.nc4",
+          "oco3_LtCO2_230618_B11072Ar_240915220919s.nc4",
+          "oco3_LtCO2_230622_B11072Ar_240915220929s.nc4"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -164.98008728027344,
+          10.202178955078125
+        ]
+      },
+      "properties": {
+        "xco2": 421.96710205078125,
+        "xco2_uncertainty": 0.5412938594818115,
+        "baseline_mean": 415.3038330078125,
+        "baseline_std": 2.687988758087158,
+        "zscore": 2.478905200958252,
+        "deviation_ppm": 6.66326904296875,
+        "source_file": "oco3_LtCO2_230623_B11072Ar_240915220931s.nc4",
+        "severity": "medium",
+        "detection_days": 3,
+        "detection_files": [
+          "oco3_LtCO2_230601_B11072Ar_240915220803s.nc4",
+          "oco3_LtCO2_230623_B11072Ar_240915220931s.nc4",
+          "oco3_LtCO2_230626_B11072Ar_240915220933s.nc4"
+        ]
+      }
+    }
+  ]
+}
