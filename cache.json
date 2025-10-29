@@ -10,5 +10,17 @@
       "severity": "high",
       "zscore": 2.8
     }
+  },
+  "5b57c9203e237a1cc7096da7c378d001492ee4337d782a04110a1d6622ebbd1b": {
+    "reasoning": "API Keyが設定されていません。",
+    "cached_at": "2025-10-29T14:51:42.466313",
+    "metadata": {
+      "lat": 35.6895,
+      "lon": 139.6917,
+      "co2": 420.5,
+      "deviation": 8.5,
+      "severity": "high",
+      "zscore": 3.2
+    }
   }
 }

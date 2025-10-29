@@ -503,12 +503,48 @@
           });
 
           // マーカークリック時にサイドパネルを開く
-          layer.on('click', function(e) {
-            // サイドパネルのコンテンツを生成
-            const content = generateSidePanelContent(props, coords);
+          layer.on('click', async function(e) {
+            // サイドパネルを開いてローディング表示
+            window.openSidePanel('<div style="text-align: center; padding: 50px;"><div style="font-size: 18px; color: #666;">読み込み中...</div></div>');
 
-            // サイドパネルを開く
-            window.openSidePanel(content);
+            // API呼び出しのためのデータを準備
+            const apiData = {
+              lat: coords[1],
+              lon: coords[0],
+              co2: props.xco2,
+              deviation: props.deviation_ppm,
+              date: props.detection_files && props.detection_files.length > 0 ? props.detection_files[0] : 'unknown',
+              severity: props.severity || 'unknown',
+              zscore: props.zscore
+            };
+
+            try {
+              // Flask APIへPOSTリクエストを送信
+              const response = await fetch('http://localhost:5000/api/reasoning', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(apiData)
+              });
+
+              if (!response.ok) {
+                throw new Error(`API呼び出し失敗: ${response.status} ${response.statusText}`);
+              }
+
+              const result = await response.json();
+              console.log('API Response:', result);
+
+              // APIレスポンスを使用してサイドパネルのコンテンツを生成
+              const content = generateSidePanelContentWithAPI(props, coords, result);
+              window.openSidePanel(content);
+
+            } catch (error) {
+              console.error('API呼び出しエラー:', error);
+              // エラー時は従来のコンテンツを表示
+              const content = generateSidePanelContent(props, coords);
+              window.openSidePanel(content + '<div style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 13px;">⚠️ AI推論サービスに接続できませんでした。Flaskサーバーが起動しているか確認してください。</div>');
+            }
           });
         }
       }).addTo(map);
@@ -554,7 +590,97 @@
       }
     }
 
-    // サイドパネルのコンテンツを生成
+    // APIレスポンスを使用してサイドパネルのコンテンツを生成
+    function generateSidePanelContentWithAPI(props, coords, apiResult) {
+      const co2Value = props.xco2;
+      const uncertainty = props.xco2_uncertainty;
+      const severity = props.severity || 'unknown';
+      const zscore = props.zscore;
+      const deviation = props.deviation_ppm;
+      const baseline = props.baseline_mean;
+      const detectionDays = props.detection_days;
+      const detectionFiles = props.detection_files || [];
+
+      // 異常度の日本語表記
+      let severityText = '';
+      if (severity === 'high') severityText = '高';
+      else if (severity === 'medium') severityText = '中';
+      else if (severity === 'low') severityText = '低';
+      else severityText = severity;
+
+      // ランク判定
+      let rank = '';
+      if (co2Value >= 420) rank = '非常に高い';
+      else if (co2Value >= 418) rank = '高い';
+      else if (co2Value >= 415) rank = 'やや高い';
+      else if (co2Value >= 412) rank = '普通';
+      else rank = '低い';
+
+      const lon = coords[0].toFixed(4);
+      const lat = coords[1].toFixed(4);
+      const color = getCO2Color(co2Value);
+
+      // APIレスポンスから推論結果を取得
+      const reasoning = apiResult.reasoning || 'AI推論結果を取得できませんでした。';
+
+      return `
+        <div style="padding: 0;">
+          <div style="background-color: ${color}; color: white; padding: 15px; margin: -20px -20px 20px -20px; border-radius: 0;">
+            <h2 style="margin: 0; font-size: 24px; font-weight: bold;">${co2Value.toFixed(2)} ppm</h2>
+            <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">CO₂濃度レベル: ${rank}</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 16px; color: #333; border-bottom: 2px solid #dee2e6; padding-bottom: 5px;">📍 位置情報</h4>
+            <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 14px;">
+              <span style="color: #666;">緯度:</span>
+              <span style="font-weight: 500;">${lat}°</span>
+              <span style="color: #666;">経度:</span>
+              <span style="font-weight: 500;">${lon}°</span>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 16px; color: #333; border-bottom: 2px solid #dee2e6; padding-bottom: 5px;">📊 測定データ</h4>
+            <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 14px;">
+              <span style="color: #666;">不確実性:</span>
+              <span style="font-weight: 500;">±${uncertainty.toFixed(2)} ppm</span>
+              <span style="color: #666;">基準値:</span>
+              <span style="font-weight: 500;">${baseline.toFixed(2)} ppm</span>
+              <span style="color: #666;">偏差:</span>
+              <span style="font-weight: 500; color: #d73027;">+${deviation.toFixed(2)} ppm</span>
+              <span style="color: #666;">Z-Score:</span>
+              <span style="font-weight: 500;">${zscore.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 16px; color: #333; border-bottom: 2px solid #dee2e6; padding-bottom: 5px;">⚠️ 異常検出情報</h4>
+            <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 14px;">
+              <span style="color: #666;">異常度:</span>
+              <span style="font-weight: 500;">${severityText}</span>
+              <span style="color: #666;">検出日数:</span>
+              <span style="font-weight: 500;">${detectionDays}日</span>
+              <span style="color: #666;">検出ファイル:</span>
+              <span style="font-weight: 500;">${detectionFiles.length}個</span>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 16px; color: #333; border-bottom: 2px solid #dee2e6; padding-bottom: 5px;">🤖 AI原因推論</h4>
+            <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
+              ${reasoning}
+            </div>
+          </div>
+
+          <div style="font-size: 12px; color: #999; text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+            検出期間: ${detectionDays}日間 | データソース: OCO-2衛星観測 | AI推論: Gemini
+          </div>
+        </div>
+      `;
+    }
+
+    // サイドパネルのコンテンツを生成（APIなし版）
     function generateSidePanelContent(props, coords) {
       const co2Value = props.xco2;
       const uncertainty = props.xco2_uncertainty;
