@@ -1,0 +1,14 @@
+{
+  "62a9c0b44bf9b424667d5c16dd1d5850e42fab20f8022c5dbb114f0b1d9420ac": {
+    "reasoning": "API Keyが設定されていません。",
+    "cached_at": "2025-10-29T12:43:26.956223",
+    "metadata": {
+      "lat": 35.6762,
+      "lon": 139.6503,
+      "co2": 420.5,
+      "deviation": 5.2,
+      "severity": "high",
+      "zscore": 2.8
+    }
+  }
+}
