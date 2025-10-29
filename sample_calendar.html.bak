@@ -111,76 +111,6 @@
       border: none !important;
     }
 
-    /* サイドパネル */
-    .side-panel {
-      position: fixed;
-      top: 0;
-      right: -400px;
-      width: 400px;
-      height: 100vh;
-      background: white;
-      box-shadow: -2px 0 10px rgba(0,0,0,0.2);
-      z-index: 2000;
-      transition: right 0.3s ease-in-out;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .side-panel.open {
-      right: 0;
-    }
-
-    .side-panel-header {
-      padding: 20px;
-      background: #f8f9fa;
-      border-bottom: 1px solid #dee2e6;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .side-panel-header h3 {
-      margin: 0;
-      font-size: 18px;
-      color: #333;
-      font-weight: 600;
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 28px;
-      color: #666;
-      cursor: pointer;
-      padding: 0;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 4px;
-      transition: background-color 0.2s;
-    }
-
-    .close-btn:hover {
-      background-color: #e9ecef;
-      color: #333;
-    }
-
-    .side-panel-content {
-      padding: 20px;
-      overflow-y: auto;
-      flex: 1;
-    }
-
-    /* レスポンシブ対応 */
-    @media (max-width: 768px) {
-      .side-panel {
-        width: 100%;
-        right: -100%;
-      }
-    }
-
   </style>
 </head>
 <body>
@@ -231,18 +161,6 @@
   </div>
 
   <div id="map"></div>
-
-  <!-- サイドパネル -->
-  <div id="sidePanel" class="side-panel">
-    <div class="side-panel-header">
-      <h3>CO₂異常値の原因推論</h3>
-      <button class="close-btn" onclick="closeSidePanel()">&times;</button>
-    </div>
-    <div class="side-panel-content">
-      <p>ここにCO₂異常値の原因推論結果が表示されます。</p>
-      <p>マーカーをクリックすると、その地点の詳細な分析情報が表示されます。</p>
-    </div>
-  </div>
 
   <!-- Leaflet JavaScript -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -501,15 +419,6 @@
             });
             this.setIcon(originalIcon);
           });
-
-          // マーカークリック時にサイドパネルを開く
-          layer.on('click', function(e) {
-            // サイドパネルのコンテンツを生成
-            const content = generateSidePanelContent(props, coords);
-
-            // サイドパネルを開く
-            window.openSidePanel(content);
-          });
         }
       }).addTo(map);
 
@@ -551,130 +460,6 @@
       } catch (error) {
         console.error('Failed to load data:', error);
         updateStatus(`エラー: ${error.message}`);
-      }
-    }
-
-    // サイドパネルのコンテンツを生成
-    function generateSidePanelContent(props, coords) {
-      const co2Value = props.xco2;
-      const uncertainty = props.xco2_uncertainty;
-      const severity = props.severity || 'unknown';
-      const zscore = props.zscore;
-      const deviation = props.deviation_ppm;
-      const baseline = props.baseline_mean;
-      const detectionDays = props.detection_days;
-      const detectionFiles = props.detection_files || [];
-
-      // 異常度の日本語表記
-      let severityText = '';
-      if (severity === 'high') severityText = '高';
-      else if (severity === 'medium') severityText = '中';
-      else if (severity === 'low') severityText = '低';
-      else severityText = severity;
-
-      // ランク判定
-      let rank = '';
-      if (co2Value >= 420) rank = '非常に高い';
-      else if (co2Value >= 418) rank = '高い';
-      else if (co2Value >= 415) rank = 'やや高い';
-      else if (co2Value >= 412) rank = '普通';
-      else rank = '低い';
-
-      const lon = coords[0].toFixed(4);
-      const lat = coords[1].toFixed(4);
-      const color = getCO2Color(co2Value);
-
-      return `
-        <div style="padding: 0;">
-          <div style="background-color: ${color}; color: white; padding: 15px; margin: -20px -20px 20px -20px; border-radius: 0;">
-            <h2 style="margin: 0; font-size: 24px; font-weight: bold;">${co2Value.toFixed(2)} ppm</h2>
-            <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">CO₂濃度レベル: ${rank}</p>
-          </div>
-
-          <div style="margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0; font-size: 16px; color: #333; border-bottom: 2px solid #dee2e6; padding-bottom: 5px;">📍 位置情報</h4>
-            <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 14px;">
-              <span style="color: #666;">緯度:</span>
-              <span style="font-weight: 500;">${lat}°</span>
-              <span style="color: #666;">経度:</span>
-              <span style="font-weight: 500;">${lon}°</span>
-            </div>
-          </div>
-
-          <div style="margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0; font-size: 16px; color: #333; border-bottom: 2px solid #dee2e6; padding-bottom: 5px;">📊 測定データ</h4>
-            <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 14px;">
-              <span style="color: #666;">不確実性:</span>
-              <span style="font-weight: 500;">±${uncertainty.toFixed(2)} ppm</span>
-              <span style="color: #666;">基準値:</span>
-              <span style="font-weight: 500;">${baseline.toFixed(2)} ppm</span>
-              <span style="color: #666;">偏差:</span>
-              <span style="font-weight: 500; color: #d73027;">+${deviation.toFixed(2)} ppm</span>
-              <span style="color: #666;">Z-Score:</span>
-              <span style="font-weight: 500;">${zscore.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div style="margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0; font-size: 16px; color: #333; border-bottom: 2px solid #dee2e6; padding-bottom: 5px;">⚠️ 異常検出情報</h4>
-            <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 14px;">
-              <span style="color: #666;">異常度:</span>
-              <span style="font-weight: 500;">${severityText}</span>
-              <span style="color: #666;">検出日数:</span>
-              <span style="font-weight: 500;">${detectionDays}日</span>
-              <span style="color: #666;">検出ファイル:</span>
-              <span style="font-weight: 500;">${detectionFiles.length}個</span>
-            </div>
-          </div>
-
-          <div style="margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0; font-size: 16px; color: #333; border-bottom: 2px solid #dee2e6; padding-bottom: 5px;">💡 原因推論</h4>
-            <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; font-size: 14px; line-height: 1.6;">
-              <p style="margin: 0 0 10px 0;">この地点では、基準値より<strong>+${deviation.toFixed(2)} ppm</strong>高い異常値が検出されました。</p>
-              <p style="margin: 0 0 10px 0;"><strong>想定される原因:</strong></p>
-              <ul style="margin: 0; padding-left: 20px;">
-                ${deviation >= 10 ? '<li>大規模な産業活動や森林火災の可能性</li>' : ''}
-                ${deviation >= 6 ? '<li>都市部の交通量増加による排出</li>' : ''}
-                ${deviation >= 4 ? '<li>季節的な植生変化の影響</li>' : ''}
-                ${deviation >= 2 ? '<li>局地的な人為的活動</li>' : ''}
-                ${deviation < 2 ? '<li>自然変動の範囲内</li>' : ''}
-              </ul>
-            </div>
-          </div>
-
-          <div style="font-size: 12px; color: #999; text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #dee2e6;">
-            検出期間: ${detectionDays}日間 | データソース: OCO-2衛星観測
-          </div>
-        </div>
-      `;
-    }
-
-    // サイドパネル開閉制御関数（グローバルスコープに公開）
-    window.openSidePanel = function(content) {
-      const panel = document.getElementById('sidePanel');
-      const contentArea = panel.querySelector('.side-panel-content');
-
-      // コンテンツが指定されている場合は更新
-      if (content) {
-        contentArea.innerHTML = content;
-      }
-
-      // パネルを開く
-      panel.classList.add('open');
-    }
-
-    window.closeSidePanel = function() {
-      const panel = document.getElementById('sidePanel');
-      panel.classList.remove('open');
-    }
-
-    // パネルの開閉状態をトグル
-    window.toggleSidePanel = function() {
-      const panel = document.getElementById('sidePanel');
-      if (panel.classList.contains('open')) {
-        window.closeSidePanel();
-      } else {
-        window.openSidePanel();
       }
     }
 
