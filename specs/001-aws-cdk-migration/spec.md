@@ -25,16 +25,16 @@
 
 ## Executive Summary
 
-This specification outlines the migration of the CO₂ Anomaly Analysis System from a local Flask-based prototype (Phase 1) to a production-ready AWS serverless architecture (Phase 2) using AWS CDK for infrastructure as code.
+This specification outlines the migration of the CO₂ Anomaly Analysis System from a local Flask-based prototype (Phase 1) to an AWS serverless prototype (Phase 2) using AWS CDK for infrastructure as code.
 
 ### Key Objectives
 
 - **Scalability**: Support 100+ concurrent users (vs. current ~10-20)
-- **Reliability**: Achieve 99.9% uptime with multi-AZ deployment
 - **Security**: Implement API authentication, WAF protection, and secrets management
 - **Cost Efficiency**: Pay-per-use model (~$25-55/month for moderate usage)
 - **Maintainability**: Infrastructure as Code with AWS CDK
-- **Observability**: Comprehensive monitoring with CloudWatch and X-Ray
+- **Observability**: Basic monitoring with CloudWatch and X-Ray
+- **Future-Ready**: Prepare for Amazon Bedrock integration
 
 ### Migration Timeline
 
@@ -65,12 +65,13 @@ The CO₂ Anomaly Analysis System is a web application that visualizes CO₂ con
 - No authentication or monitoring
 - Single point of failure
 
-**Target State (Phase 2)**:
-- AWS serverless architecture
+**Target State (Phase 2 - Prototype)**:
+- AWS serverless architecture (prototype configuration)
 - DynamoDB caching with TTL
 - API Gateway with authentication
-- CloudFront CDN for global distribution
-- Comprehensive monitoring and alerts
+- CloudFront CDN for content delivery
+- Basic monitoring and alerts
+- Prepared for future Amazon Bedrock integration
 
 ### Scope
 
@@ -86,9 +87,15 @@ The CO₂ Anomaly Analysis System is a web application that visualizes CO₂ con
 **Out of Scope**:
 - Changes to core business logic
 - Frontend UI redesign
-- Gemini API replacement
 - Multi-region deployment (Phase 3 consideration)
-- Custom domain setup (optional)
+- Multi-AZ high availability configuration (production-ready features)
+- Custom domain setup within AWS (domain managed externally)
+- ACM certificate request (SSL certificate imported from external source)
+
+**Future Enhancements (Post-Migration)**:
+- Migration from Gemini API to Amazon Bedrock
+- Production-level reliability (multi-AZ, 99.9% uptime)
+- Advanced monitoring and alerting
 
 ### Stakeholders
 
@@ -308,47 +315,19 @@ aws ssm get-parameter --name /app/gemini-model
    - DynamoDB table with TTL
    - S3 bucket for GeoJSON data
    - S3 bucket for static website
-2. Migrate data from cache.json to DynamoDB:
-   - Write migration script
-   - Transform JSON to DynamoDB items
-   - Add TTL attributes
-3. Upload GeoJSON files to S3
-4. Deploy StorageStack
-5. Validate data migration
+2. Upload GeoJSON files to S3
+3. Deploy StorageStack
+4. Validate DynamoDB table creation
 
 **Deliverables**:
 - StorageStack deployed
-- DynamoDB table populated
+- DynamoDB table created (empty - cache will populate on use)
 - GeoJSON files in S3
 
-**Migration Script**:
-```python
-# migrate_cache.py
-import json
-import boto3
-from datetime import datetime, timedelta
-
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('CO2ReasoningCache')
-
-with open('cache.json', 'r') as f:
-    cache_data = json.load(f)
-
-for cache_key, entry in cache_data.items():
-    # Add TTL (90 days from now)
-    ttl = int((datetime.now() + timedelta(days=90)).timestamp())
-
-    item = {
-        'cache_key': cache_key,
-        'reasoning': entry['reasoning'],
-        'cached_at': entry.get('cached_at', datetime.now().isoformat()),
-        'metadata': entry.get('metadata', {}),
-        'ttl': ttl
-    }
-
-    table.put_item(Item=item)
-    print(f"Migrated: {cache_key}")
-```
+**Note on Cache Migration**:
+- `cache.json` is a local cache file and does not require migration
+- DynamoDB cache will be populated naturally as users make API requests
+- Cache miss scenarios will generate new cache entries automatically
 
 ---
 
@@ -670,10 +649,10 @@ If critical issues arise:
 | ID | Requirement | Phase 1 | Phase 2 | Target |
 |----|-------------|---------|---------|--------|
 | NFR-1 | Response time (cache hit) | 50-100ms | 100-200ms | <300ms |
-| NFR-2 | Response time (cache miss) | 2-6s | 3-6s | <10s |
+| NFR-2 | Response time (cache miss) | 2-6s | 3-10s | <10s |
 | NFR-3 | Concurrent users | 10-20 | 100+ | 100+ |
-| NFR-4 | Availability | ~95% | 99.9% | 99.9% |
-| NFR-5 | Data persistence | File-based | Multi-AZ | Durable |
+| NFR-4 | Availability | ~95% | Standard | Standard (prototype) |
+| NFR-5 | Data persistence | File-based | DynamoDB | Durable |
 | NFR-6 | Cost | $0 | $25-55/mo | <$100/mo |
 
 ### Security Requirements
@@ -817,8 +796,8 @@ cdk/
 | Cache Hit Latency | 50-100ms | <300ms | CloudWatch metrics |
 | Cache Miss Latency | 2-6s | <10s | CloudWatch metrics |
 | Concurrent Users | 10-20 | 100+ | Load testing |
-| Availability | ~95% | 99.9% | CloudWatch uptime |
-| Error Rate | Unknown | <1% | CloudWatch metrics |
+| Availability | ~95% | Standard (prototype) | CloudWatch uptime |
+| Error Rate | Unknown | <5% | CloudWatch metrics |
 
 ### Cost Metrics
 

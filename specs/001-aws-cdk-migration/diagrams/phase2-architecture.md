@@ -1,8 +1,8 @@
 # Phase 2 - AWS Architecture
 
-## Target State (AWS Serverless)
+## Target State (AWS Serverless Prototype)
 
-This diagram shows the target architecture using AWS services deployed via CDK.
+This diagram shows the target prototype architecture using AWS services deployed via CDK. This is designed as a prototype with plans for future production-ready enhancements including multi-AZ deployment and Amazon Bedrock integration.
 
 ```mermaid
 graph TB
@@ -114,11 +114,11 @@ graph TB
   - S3 Data Bucket (GeoJSON files)
   - API Gateway (API endpoints)
 - **Cache Behaviors**:
-  - Static HTML/JS/CSS: 1 hour TTL
-  - GeoJSON files: 24 hours TTL
+  - Static HTML/JS/CSS: <8 hours TTL
+  - GeoJSON files: <72 hours TTL
   - API calls: No caching
-- **Custom Domain**: Optional (Route53 integration)
-- **SSL Certificate**: ACM-managed
+- **Custom Domain**: Managed externally (not in AWS)
+- **SSL Certificate**: Imported from external source (not ACM-requested)
 
 ### Static Content (Frontend Stack)
 
@@ -328,10 +328,11 @@ graph TB
 - DynamoDB auto-scaling (on-demand)
 - CloudFront edge caching (global)
 
-### Reliability
-- Multi-AZ availability (DynamoDB, Lambda)
+### Reliability (Prototype)
+- Standard AWS service availability
 - DynamoDB point-in-time recovery
 - CloudFront redundancy
+- Note: Multi-AZ configuration planned for production phase
 
 ### Security
 - API key authentication
@@ -392,6 +393,7 @@ graph TB
 1. Set up AWS account
 2. Configure AWS CLI and CDK
 3. Create parameter values (API keys, configs)
+4. Prepare external SSL certificate for import (if using custom domain)
 
 ### Phase 1: Base Infrastructure
 1. Deploy Base Stack (IAM, Secrets Manager, SSM)
@@ -400,8 +402,9 @@ graph TB
 
 ### Phase 2: Data Layer
 1. Deploy Storage Stack (DynamoDB, S3)
-2. Create DynamoDB table
+2. Create empty DynamoDB table (cache will populate on use)
 3. Upload GeoJSON files to S3
+4. **Note**: No cache.json migration needed - this is a cache file
 
 ### Phase 3: Compute Layer
 1. Build Lambda layer (dependencies)
@@ -419,6 +422,8 @@ graph TB
 2. Deploy Frontend Stack (S3, CloudFront)
 3. Upload static files to S3
 4. Configure CloudFront distribution
+5. Import external SSL certificate (if using custom domain)
+6. Configure external DNS to point to CloudFront
 
 ### Phase 6: Monitoring
 1. Deploy Observability Stack
@@ -428,13 +433,18 @@ graph TB
 ### Phase 7: Testing & Cutover
 1. End-to-end testing
 2. Performance testing
-3. Update DNS (if using custom domain)
+3. Update external DNS (if using custom domain)
 4. Monitor for 24-48 hours
 
 ### Post-Migration
 1. Decommission local Flask server
 2. Document new endpoints
 3. Update README with AWS instructions
+
+### Future Enhancements
+1. **Amazon Bedrock Integration**: Replace Gemini API with Amazon Bedrock
+2. **Production Hardening**: Implement multi-AZ configuration
+3. **Advanced Monitoring**: Enhanced CloudWatch dashboards and alerts
 
 ## Rollback Plan
 

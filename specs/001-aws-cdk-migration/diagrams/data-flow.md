@@ -148,7 +148,7 @@ sequenceDiagram
 11. Return response to browser (cached: false)
 
 **Performance**:
-- Latency: 2-6 seconds
+- Latency: 2-10 seconds (target: <10s)
 - Bottleneck: Gemini API network call
 - Cache saved for future requests
 
@@ -353,11 +353,11 @@ sequenceDiagram
 17. Return response (cached: false)
 
 **Performance**:
-- Total Latency: 3-6 seconds
+- Total Latency: 3-10 seconds (target: <10s)
 - DynamoDB Operations: <20ms (GetItem + PutItem)
 - Secrets Manager: ~50-100ms (first call, then cached)
-- Gemini API: 2-5 seconds (dominant factor)
-- Lambda Execution: 3-6 seconds
+- Gemini API: 2-8 seconds (dominant factor)
+- Lambda Execution: 3-10 seconds
 - X-Ray Overhead: <10ms
 
 **Cost per Request**:
@@ -634,9 +634,9 @@ flowchart TB
 
 | Metric | Phase 1 (Local) | Phase 2 (AWS) |
 |--------|-----------------|---------------|
-| Total Latency | 2-6s | 3-6s |
+| Total Latency | 2-10s | 3-10s |
 | Cache Lookup | 20-50ms | <10ms |
-| API Call | 2-5s | 2-5s |
+| API Call | 2-8s | 2-8s |
 | Cache Save | 50-100ms (file write) | <10ms (DynamoDB) |
 | Secret Retrieval | N/A (.env file) | 50-100ms (first call) |
 | Cost per Request | $0 (plus API quota) | ~$0.000008 |
