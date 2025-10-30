@@ -103,9 +103,9 @@ test_*.png
 *.shx
 *.dbf
 *.prj
-10m_cultural/
-data/nc4/
-data/geojson/
+
+# Data directory - contains large datasets and should not be in version control
+data/
 
 # Test and sample HTML files
 # Generated HTML files for testing
