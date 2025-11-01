@@ -742,12 +742,93 @@ For production with 100,000 requests/month:
 - **Estimated cost**: $50-100/month
 - Main cost drivers: Lambda invocations, CloudFront data transfer, CloudWatch Logs
 
+## Security
+
+### CDK Nag Integration
+
+This project uses **CDK Nag** to enforce AWS security best practices automatically during synthesis. All stacks are validated against AWS Solutions best practices.
+
+#### Running Security Checks
+
+```bash
+# Security checks run automatically during synthesis
+npm run build
+npx cdk synth --context environment=dev
+
+# ✅ No errors = all security checks passed
+# ⚠️  Warnings = review recommended (all documented)
+# ❌ Errors = must be fixed before deployment
+```
+
+#### Security Best Practices Implemented
+
+✅ **S3 Security**
+- All buckets block public access
+- Encryption at rest (AES-256)
+- TLS/HTTPS enforced for all operations
+- Access logging enabled
+- CloudFront OAI for bucket access
+
+✅ **IAM Security**
+- Least-privilege IAM roles
+- No wildcard permissions (except documented exceptions)
+- Service-specific principals only
+
+✅ **Data Protection**
+- Secrets Manager for API keys (encrypted at rest)
+- DynamoDB encryption at rest
+- All data in transit uses TLS/HTTPS
+- Point-in-time recovery (production only)
+
+✅ **CloudFront Security**
+- HTTPS-only connections
+- Security headers (HSTS, X-Content-Type-Options, X-Frame-Options)
+- Access logging enabled
+- TLS 1.2 minimum protocol version
+
+✅ **Monitoring**
+- CloudWatch Logs with retention policies
+- CloudWatch Alarms for security events
+- SNS notifications with TLS enforcement
+
+#### Security Documentation
+
+For detailed security information, see:
+- **[SECURITY.md](./SECURITY.md)** - Complete security documentation
+  - CDK Nag suppressions with justifications
+  - Security controls for each stack
+  - Compliance and audit information
+  - Security recommendations
+
+#### Security Suppressions
+
+All CDK Nag suppressions are documented with proper justifications. To validate suppressions:
+
+```bash
+# All suppressions have been validated with CheckCDKNagSuppressions tool
+# Review SECURITY.md for complete suppression documentation
+```
+
+**Summary of Suppressions:**
+- AwsSolutions-SMG4: Third-party API key (manual rotation)
+- AwsSolutions-IAM4: AWS managed policies (best practices)
+- AwsSolutions-IAM5: DynamoDB GSI wildcard (required)
+- AwsSolutions-DDB3: PITR disabled for dev (cost optimization)
+- AwsSolutions-CFR1: Global scientific data access
+- AwsSolutions-CFR2: WAF enabled for prod/staging only
+- AwsSolutions-CFR4: Default CloudFront certificate
+
+All suppressions are documented with evidence and justification in [SECURITY.md](./SECURITY.md).
+
 ## Additional Resources
 
+- [SECURITY.md](./SECURITY.md) - Security best practices and CDK Nag documentation
 - [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/)
 - [AWS Lambda Best Practices](https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html)
 - [DynamoDB Best Practices](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html)
 - [CloudFront Documentation](https://docs.aws.amazon.com/cloudfront/)
+- [AWS Security Best Practices](https://docs.aws.amazon.com/security/)
+- [CDK Nag Documentation](https://github.com/cdklabs/cdk-nag)
 - [Project Specification](../specs/001-aws-cdk-migration/spec.md)
 - [Phase 2 Architecture Diagram](../specs/001-aws-cdk-migration/diagrams/phase2-architecture.md)
 

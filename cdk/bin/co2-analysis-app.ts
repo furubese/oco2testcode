@@ -8,6 +8,7 @@ import { ComputeStack } from '../lib/compute-stack';
 import { FrontendStack } from '../lib/frontend-stack';
 import { MonitoringStack } from '../lib/monitoring-stack';
 import { getEnvironmentConfig } from '../config/environment';
+import { AwsSolutionsChecks } from 'cdk-nag';
 
 /**
  * CO2 Anomaly Analysis System - CDK Application
@@ -81,7 +82,8 @@ const networkStack = new NetworkStack(app, 'NetworkStack', config, {
   },
 });
 
-networkStack.addDependency(baseStack);
+// CDK will automatically infer dependencies based on resource references
+// networkStack.addDependency(baseStack);
 
 // ========================================
 // Layer 3: StorageStack - Data
@@ -90,13 +92,13 @@ networkStack.addDependency(baseStack);
 const storageStack = new StorageStack(app, 'StorageStack', config, {
   env,
   description: 'Data layer: DynamoDB cache table and S3 buckets',
-  lambdaExecutionRole: baseStack.lambdaExecutionRole,
   tags: {
     Layer: '3-Data',
   },
 });
 
-storageStack.addDependency(baseStack);
+// CDK will automatically infer dependencies based on resource references
+// storageStack.addDependency(baseStack);
 
 // ========================================
 // Layer 4: ComputeStack - Compute
@@ -113,8 +115,9 @@ const computeStack = new ComputeStack(app, 'ComputeStack', config, {
   },
 });
 
-computeStack.addDependency(baseStack);
-computeStack.addDependency(storageStack);
+// CDK will automatically infer dependencies based on resource references
+// computeStack.addDependency(baseStack);
+// computeStack.addDependency(storageStack);
 
 // ========================================
 // Layer 5: FrontendStack - Frontend
@@ -125,13 +128,15 @@ const frontendStack = new FrontendStack(app, 'FrontendStack', config, {
   description: 'Frontend layer: CloudFront distribution and static website',
   staticWebsiteBucket: storageStack.staticWebsiteBucket,
   geoJsonBucket: storageStack.geoJsonBucket,
+  originAccessIdentity: storageStack.originAccessIdentity,
   // apiGateway will be added when ApiStack is implemented
   tags: {
     Layer: '5-Frontend',
   },
 });
 
-frontendStack.addDependency(storageStack);
+// CDK will automatically infer dependencies based on resource references
+// frontendStack.addDependency(storageStack);
 
 // ========================================
 // Layer 6: MonitoringStack - Observability
@@ -148,8 +153,18 @@ const monitoringStack = new MonitoringStack(app, 'MonitoringStack', config, {
   },
 });
 
-monitoringStack.addDependency(computeStack);
-monitoringStack.addDependency(storageStack);
+// CDK will automatically infer dependencies based on resource references
+// monitoringStack.addDependency(computeStack);
+// monitoringStack.addDependency(storageStack);
+
+// ========================================
+// CDK Nag - Security and Best Practices Validation
+// ========================================
+
+// Apply AWS Solutions security checks to all stacks
+cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
+
+console.log(`🔒 CDK Nag enabled: AwsSolutionsChecks will validate security best practices\n`);
 
 // ========================================
 // Synthesize CloudFormation Templates
