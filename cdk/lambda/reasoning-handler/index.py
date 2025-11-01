@@ -84,6 +84,7 @@ def get_gemini_api_key() -> str:
 def generate_cache_key(lat: float, lon: float, date: str) -> str:
     """
     Generate SHA256 hash for cache key
+    Matches the cache_manager.py implementation from Flask app
 
     Args:
         lat: Latitude
@@ -93,18 +94,15 @@ def generate_cache_key(lat: float, lon: float, date: str) -> str:
     Returns:
         str: SHA256 hash as cache key
     """
-    # Round coordinates to 4 decimal places for cache consistency
-    lat_rounded = round(lat, 4)
-    lon_rounded = round(lon, 4)
+    # Create hash input (matching cache_manager.py format)
+    # Note: Flask version doesn't round coordinates, so we match that behavior
+    key_string = f"{lat}_{lon}_{date}"
 
-    # Create hash input
-    hash_input = f"{lat_rounded}_{lon_rounded}_{date}"
-
-    # Generate SHA256 hash
-    hash_object = hashlib.sha256(hash_input.encode())
+    # Generate SHA256 hash (matching cache_manager.py)
+    hash_object = hashlib.sha256(key_string.encode('utf-8'))
     cache_key = hash_object.hexdigest()
 
-    logger.debug(f"Generated cache key: {cache_key} for {hash_input}")
+    logger.debug(f"Generated cache key: {cache_key} for {key_string}")
     return cache_key
 
 
@@ -175,6 +173,7 @@ def generate_reasoning_with_gemini(
 ) -> str:
     """
     Generate reasoning using Google Gemini API
+    Uses Japanese prompt matching the Flask implementation
 
     Args:
         lat: Latitude
@@ -191,28 +190,37 @@ def generate_reasoning_with_gemini(
     api_key = get_gemini_api_key()
     genai.configure(api_key=api_key)
 
-    # Create prompt
-    prompt = f"""You are an environmental data analyst. Analyze this CO₂ concentration anomaly:
+    # Map severity to Japanese (matching gemini_client.py logic)
+    severity_ja = {
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+    }.get(severity, severity)
 
-Location: {lat}°N, {lon}°E
-CO₂ Concentration: {co2} ppm
-Deviation from baseline: {deviation} ppm
-Severity: {severity}
-Z-Score: {zscore}
-Observation Date: {date}
+    # Create prompt (matching gemini_client.py generate_prompt function)
+    prompt = f"""以下のCO2濃度異常データについて、専門家の視点から分析し、日本語で200-300文字程度で推論してください。
 
-Provide a concise analysis (2-3 sentences) explaining possible causes of this CO₂ anomaly. Consider:
-- Nearby industrial activities
-- Urban density and traffic patterns
-- Seasonal factors
-- Geographic features
-- Weather patterns
+【観測データ】
+- 日付: {date}
+- 位置: 緯度 {lat:.2f}°, 経度 {lon:.2f}°
+- CO2濃度: {co2:.2f} ppm
+- 偏差: {deviation:.2f} ppm
+- 異常度: {severity_ja}
+- Zスコア: {zscore:.2f}
 
-Focus on the most likely causes based on the location and severity."""
+【推論内容】
+この地点でのCO2濃度異常の考えられる原因、その地域の特徴、および環境への影響について、科学的根拠に基づいて分析してください。
+地理的な特性や、その時期の気候的要因も考慮してください。
+"""
 
     try:
         model = genai.GenerativeModel(GEMINI_MODEL)
         response = model.generate_content(prompt)
+
+        # Check for empty response (matching gemini_client.py validation)
+        if not response or not response.text:
+            raise Exception("Empty response received from Gemini API")
+
         reasoning = response.text.strip()
 
         logger.info(f"Generated reasoning for ({lat}, {lon}): {len(reasoning)} chars")
@@ -246,16 +254,63 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             body = event.get('body', event)
 
-        # Extract parameters
-        lat = float(body['lat'])
-        lon = float(body['lon'])
-        co2 = float(body['co2'])
-        deviation = float(body.get('deviation', 0))
-        date = body.get('date', '')
-        severity = body.get('severity', 'unknown')
-        zscore = float(body.get('zscore', 0))
+        # Validate required fields (matching Flask implementation)
+        required_fields = ['lat', 'lon', 'co2', 'deviation', 'date', 'severity', 'zscore']
+        missing_fields = [field for field in required_fields if field not in body]
 
-        logger.info(f"Processing request for location: ({lat}, {lon})")
+        if missing_fields:
+            logger.warning(f"Missing required fields: {missing_fields}")
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                },
+                'body': json.dumps({
+                    'error': 'Missing required fields',
+                    'missing_fields': missing_fields
+                })
+            }
+
+        # Extract and validate parameters
+        try:
+            lat = float(body['lat'])
+            lon = float(body['lon'])
+            co2 = float(body['co2'])
+            deviation = float(body['deviation'])
+            date = str(body['date'])
+            severity = str(body['severity'])
+            zscore = float(body['zscore'])
+        except (ValueError, TypeError) as e:
+            logger.error(f"Invalid parameter type: {e}")
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                },
+                'body': json.dumps({
+                    'error': 'Invalid parameter type',
+                    'message': str(e)
+                })
+            }
+
+        # Validate severity value (matching Flask implementation)
+        if severity not in ['high', 'medium', 'low']:
+            logger.warning(f"Invalid severity value: {severity}")
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                },
+                'body': json.dumps({
+                    'error': 'Invalid severity value',
+                    'message': 'severity must be one of: high, medium, low'
+                })
+            }
+
+        logger.info(f"Processing request for location: ({lat}, {lon}), severity: {severity}")
 
         # Generate cache key
         cache_key = generate_cache_key(lat, lon, date)
