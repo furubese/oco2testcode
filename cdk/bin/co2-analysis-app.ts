@@ -34,8 +34,9 @@ const app = new cdk.App();
 // Get environment from context (defaults to 'dev')
 const environmentName = app.node.tryGetContext('environment') || 'dev';
 
-// Load environment configuration
-const config = getEnvironmentConfig(app.node.tryGetContext(), environmentName);
+// Load environment configuration from cdk.json
+const cdkJson = require('../cdk.json');
+const config = getEnvironmentConfig(cdkJson, environmentName);
 
 // Validate required configuration
 if (!config.account && !process.env.CDK_DEFAULT_ACCOUNT) {
