@@ -264,6 +264,9 @@
 
   <div id="map"></div>
 
+  <!-- Configuration -->
+  <script src="config.js"></script>
+
   <!-- サイドパネル -->
   <div id="sidePanel" class="side-panel">
     <div class="side-panel-header">
@@ -571,8 +574,12 @@
               const timeoutId = setTimeout(() => controller.abort(), 30000);
 
               try {
-                // Flask APIへPOSTリクエストを送信
-                const response = await fetch('http://localhost:5000/api/reasoning', {
+                // API Gateway URL from config (falls back to local development)
+                const apiUrl = window.APP_CONFIG ? window.APP_CONFIG.API_GATEWAY_URL : 'http://localhost:5000';
+                const endpoint = window.APP_CONFIG ? window.APP_CONFIG.ENDPOINTS.REASONING : '/api/reasoning';
+
+                // Flask API or API GatewayへPOSTリクエストを送信
+                const response = await fetch(`${apiUrl}${endpoint}`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json'
