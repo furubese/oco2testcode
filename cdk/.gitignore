@@ -5,11 +5,12 @@ node_modules
 
 # CDK asset staging directory
 .cdk.staging
-cdk.out
-
-# CDK Context & Staging files
 .cdk.staging/
+cdk.out
 cdk.context.json
+
+# Build output
+dist/
 
 # Build artifacts
 *.tsbuildinfo
@@ -17,10 +18,11 @@ cdk.context.json
 # Environment variables
 .env
 .env.local
+.env.*.local
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
@@ -28,3 +30,13 @@ cdk.context.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/

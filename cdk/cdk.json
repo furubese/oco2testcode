@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/cdk.ts",
+  "app": "npx ts-node --prefer-ts-exts bin/co2-analysis-app.ts",
   "watch": {
     "include": [
       "**"
@@ -17,8 +17,6 @@
     ]
   },
   "context": {
-    "@aws-cdk/aws-signer:signingProfileNamePassedToCfn": true,
-    "@aws-cdk/aws-ecs-patterns:secGroupsDisablesImplicitOpenListener": true,
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": [
@@ -33,9 +31,10 @@
     "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
     "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
     "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
-    "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
+    "@aws-cdk/aws-apigateway:disableCloudWatchRole": false,
     "@aws-cdk/core:enablePartitionLiterals": true,
     "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
+    "@aws-cdk/aws-iam:standardizedServicePrincipals": true,
     "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": true,
     "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": true,
     "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
@@ -51,7 +50,6 @@
     "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
     "@aws-cdk/aws-apigateway:requestValidatorUniqueId": true,
     "@aws-cdk/aws-kms:aliasNameRef": true,
-    "@aws-cdk/aws-kms:applyImportedAliasPermissionsToPrincipal": true,
     "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
     "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
     "@aws-cdk/aws-efs:denyAnonymousAccess": true,
@@ -68,34 +66,61 @@
     "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": true,
     "@aws-cdk/aws-eks:nodegroupNameAttribute": true,
     "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
-    "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": true,
-    "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": false,
-    "@aws-cdk/aws-s3:keepNotificationInImportedBucket": false,
-    "@aws-cdk/core:explicitStackTags": true,
-    "@aws-cdk/aws-ecs:enableImdsBlockingDeprecatedFeature": false,
-    "@aws-cdk/aws-ecs:disableEcsImdsBlocking": true,
     "@aws-cdk/aws-ecs:reduceEc2FargateCloudWatchPermissions": true,
     "@aws-cdk/aws-dynamodb:resourcePolicyPerReplica": true,
-    "@aws-cdk/aws-ec2:ec2SumTImeoutEnabled": true,
-    "@aws-cdk/aws-appsync:appSyncGraphQLAPIScopeLambdaPermission": true,
-    "@aws-cdk/aws-rds:setCorrectValueForDatabaseInstanceReadReplicaInstanceResourceId": true,
-    "@aws-cdk/core:cfnIncludeRejectComplexResourceUpdateCreatePolicyIntrinsics": true,
-    "@aws-cdk/aws-lambda-nodejs:sdkV3ExcludeSmithyPackages": true,
-    "@aws-cdk/aws-stepfunctions-tasks:fixRunEcsTaskPolicy": true,
-    "@aws-cdk/aws-ec2:bastionHostUseAmazonLinux2023ByDefault": true,
-    "@aws-cdk/aws-route53-targets:userPoolDomainNameMethodWithoutCustomResource": true,
-    "@aws-cdk/aws-elasticloadbalancingV2:albDualstackWithoutPublicIpv4SecurityGroupRulesDefault": true,
-    "@aws-cdk/aws-iam:oidcRejectUnauthorizedConnections": true,
-    "@aws-cdk/core:enableAdditionalMetadataCollection": true,
-    "@aws-cdk/aws-lambda:createNewPoliciesWithAddToRolePolicy": false,
-    "@aws-cdk/aws-s3:setUniqueReplicationRoleName": true,
-    "@aws-cdk/aws-events:requireEventBusPolicySid": true,
-    "@aws-cdk/core:aspectPrioritiesMutating": true,
-    "@aws-cdk/aws-dynamodb:retainTableReplica": true,
-    "@aws-cdk/aws-stepfunctions:useDistributedMapResultWriterV2": true,
-    "@aws-cdk/s3-notifications:addS3TrustKeyPolicyForSnsSubscriptions": true,
-    "@aws-cdk/aws-ec2:requirePrivateSubnetsForEgressOnlyInternetGateway": true,
-    "@aws-cdk/aws-s3:publicAccessBlockedByDefault": true,
-    "@aws-cdk/aws-lambda:useCdkManagedLogGroup": true
+    "@aws-cdk/aws-autoscaling:ec2CapacityRebalancingDefaultValue": true
+  },
+  "environmentConfig": {
+    "dev": {
+      "account": "",
+      "region": "us-east-1",
+      "environment": "dev",
+      "projectName": "co2-analysis",
+      "appName": "CO2 Anomaly Analysis",
+      "provisionedConcurrency": 0,
+      "wafEnabled": false,
+      "enableXRay": false,
+      "logRetentionDays": 7,
+      "alarmEmail": "",
+      "cacheTtlDays": 90,
+      "apiThrottling": {
+        "rateLimit": 100,
+        "burstLimit": 200
+      }
+    },
+    "staging": {
+      "account": "",
+      "region": "us-east-1",
+      "environment": "staging",
+      "projectName": "co2-analysis",
+      "appName": "CO2 Anomaly Analysis",
+      "provisionedConcurrency": 0,
+      "wafEnabled": true,
+      "enableXRay": true,
+      "logRetentionDays": 14,
+      "alarmEmail": "",
+      "cacheTtlDays": 90,
+      "apiThrottling": {
+        "rateLimit": 500,
+        "burstLimit": 1000
+      }
+    },
+    "prod": {
+      "account": "",
+      "region": "us-east-1",
+      "environment": "prod",
+      "projectName": "co2-analysis",
+      "appName": "CO2 Anomaly Analysis",
+      "provisionedConcurrency": 1,
+      "wafEnabled": true,
+      "enableXRay": true,
+      "logRetentionDays": 30,
+      "alarmEmail": "",
+      "cacheTtlDays": 90,
+      "apiThrottling": {
+        "rateLimit": 1000,
+        "burstLimit": 2000
+      }
+    }
   }
 }
