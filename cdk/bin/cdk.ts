@@ -1,12 +1,25 @@
 #!/usr/bin/env node
+// This file is deprecated. Please use co2-analysis-app.ts instead.
+// Keeping this file for reference only.
 
-/**
- * Legacy CDK entry point - DEPRECATED
- *
- * This file is deprecated. Use co2-analysis-app.ts instead.
- * This file is kept for backwards compatibility only.
- */
+/*
+import * as cdk from 'aws-cdk-lib';
+import { CdkStack } from '../lib/cdk-stack';
 
-console.log('⚠️  Warning: cdk.ts is deprecated. Use co2-analysis-app.ts instead.');
-console.log('   Run: cdk synth --app "npx ts-node bin/co2-analysis-app.ts"');
-console.log('');
+const app = new cdk.App();
+new CdkStack(app, 'CdkStack', {
+  // If you don't specify 'env', this stack will be environment-agnostic.
+  // Account/Region-dependent features and context lookups will not work,
+  // but a single synthesized template can be deployed anywhere.
+
+  // Uncomment the next line to specialize this stack for the AWS Account
+  // and Region that are implied by the current CLI configuration.
+  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+
+  // Uncomment the next line if you know exactly what Account and Region you
+  // want to deploy the stack to.
+  // env: { account: '123456789012', region: 'us-east-1' },
+
+  // For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
+});
+*/

@@ -7,9 +7,8 @@ import { StorageStack } from '../lib/storage-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { FrontendStack } from '../lib/frontend-stack';
 import { MonitoringStack } from '../lib/monitoring-stack';
+import { getEnvironmentConfig } from '../config/environment';
 import { AwsSolutionsChecks } from 'cdk-nag';
-import * as fs from 'fs';
-import * as path from 'path';
 
 /**
  * CO2 Anomaly Analysis System - CDK Application
@@ -36,20 +35,9 @@ const app = new cdk.App();
 // Get environment from context (defaults to 'dev')
 const environmentName = app.node.tryGetContext('environment') || 'dev';
 
-// Load cdk.json manually to get environment configuration
-const cdkJsonPath = path.join(__dirname, '..', 'cdk.json');
-const cdkJson = JSON.parse(fs.readFileSync(cdkJsonPath, 'utf-8'));
-const environmentConfig = cdkJson.environmentConfig;
-
-if (!environmentConfig || !environmentConfig[environmentName]) {
-  throw new Error(
-    `Environment configuration not found for: ${environmentName}. ` +
-    `Please ensure cdk.json contains environmentConfig.${environmentName}. ` +
-    `Available environments: ${Object.keys(environmentConfig || {}).join(', ')}`
-  );
-}
-
-const config = environmentConfig[environmentName];
+// Load environment configuration from cdk.json
+const cdkJson = require('../cdk.json');
+const config = getEnvironmentConfig(cdkJson, environmentName);
 
 // Validate required configuration
 if (!config.account && !process.env.CDK_DEFAULT_ACCOUNT) {
