@@ -1,0 +1,7 @@
+# Lambda handler dependencies
+# (Most dependencies are in the Lambda layer)
+
+# These are included for local testing only
+# The actual Lambda uses the dependencies from the layer
+google-generativeai==0.3.2
+boto3==1.34.0
