@@ -104,9 +104,10 @@ const storageStack = new StorageStack(app, 'StorageStack', config, {
 // Layer 4: ComputeStack - Compute
 // ========================================
 
-const computeStack = new ComputeStack(app, 'ComputeStack', config, {
+const computeStack = new ComputeStack(app, 'ComputeStack', {
   env,
   description: 'Compute layer: Lambda function for reasoning API',
+  config: config,
   lambdaExecutionRole: baseStack.lambdaExecutionRole,
   cacheTable: storageStack.cacheTable,
   geminiApiKeySecret: baseStack.geminiApiKeySecret,
@@ -123,13 +124,13 @@ const computeStack = new ComputeStack(app, 'ComputeStack', config, {
 // Layer 5: FrontendStack - Frontend
 // ========================================
 
-const frontendStack = new FrontendStack(app, 'FrontendStack', config, {
+const frontendStack = new FrontendStack(app, 'FrontendStack', {
   env,
   description: 'Frontend layer: CloudFront distribution and static website',
+  config: config,
   staticWebsiteBucket: storageStack.staticWebsiteBucket,
   geoJsonBucket: storageStack.geoJsonBucket,
   originAccessIdentity: storageStack.originAccessIdentity,
-  // apiGateway will be added when ApiStack is implemented
   tags: {
     Layer: '5-Frontend',
   },
@@ -142,12 +143,13 @@ const frontendStack = new FrontendStack(app, 'FrontendStack', config, {
 // Layer 6: MonitoringStack - Observability
 // ========================================
 
-const monitoringStack = new MonitoringStack(app, 'MonitoringStack', config, {
+const monitoringStack = new MonitoringStack(app, 'MonitoringStack', {
   env,
   description: 'Observability layer: CloudWatch dashboards, alarms, and SNS topics',
-  reasoningFunction: computeStack.reasoningFunction,
+  config: config,
+  lambdaFunction: computeStack.reasoningFunction,
+  api: computeStack.api,
   cacheTable: storageStack.cacheTable,
-  // apiGateway will be added when ApiStack is implemented
   tags: {
     Layer: '6-Observability',
   },
