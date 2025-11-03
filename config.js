@@ -11,7 +11,11 @@ const CONFIG = {
   API_GATEWAY_URL: 'http://localhost:5000', // Default to local development
 
   // CloudFront URL - will be populated from Parameter Store during deployment
-  CLOUDFRONT_URL: '',
+  CLOUDFRONT_URL: 'https://d2t60ct01pkwhj.cloudfront.net',
+
+  // S3 GeoJSON Bucket URL - Use CloudFront URL for secure access to GeoJSON data
+  // Direct S3 URL will not work due to BlockPublicAccess settings
+  GEOJSON_BASE_URL: 'https://d2t60ct01pkwhj.cloudfront.net/data/geojson',
 
   // Environment
   ENVIRONMENT: 'dev',

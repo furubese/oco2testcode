@@ -684,9 +684,17 @@
 
         updateStatus(`${year}年${month}月のデータ読込中...`);
 
+        // Get GeoJSON base URL from config or use relative path as fallback
+        const baseUrl = window.APP_CONFIG && window.APP_CONFIG.GEOJSON_BASE_URL
+          ? window.APP_CONFIG.GEOJSON_BASE_URL
+          : '.';
+
+        // Construct full URL
+        const fileUrl = `${baseUrl}/${filename}`;
+
         // キャッシュバスター: タイムスタンプをクエリパラメータに追加
         const timestamp = new Date().getTime();
-        const response = await fetch(`${filename}?t=${timestamp}`);
+        const response = await fetch(`${fileUrl}?t=${timestamp}`);
 
         if (!response.ok) {
           throw new Error(`ファイルが見つかりません: ${filename}`);
