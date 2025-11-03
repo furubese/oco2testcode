@@ -21,8 +21,8 @@ const CONFIG = {
 
   // API endpoints
   ENDPOINTS: {
-    REASONING: '/api/reasoning',
-    GEOJSON: '/data/geojson',
+    REASONING: '/reasoning', // API Gateway endpoint path
+    GEOJSON: '/data/geojson', // CloudFront path for GeoJSON files
   }
 };
 

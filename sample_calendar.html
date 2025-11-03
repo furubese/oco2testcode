@@ -684,9 +684,16 @@
 
         updateStatus(`${year}年${month}月のデータ読込中...`);
 
+        // Construct the GeoJSON file path
+        // In production (CloudFront), files are served from /data/geojson/
+        // In local development, files are served from root
+        const geojsonPath = window.APP_CONFIG && window.APP_CONFIG.CLOUDFRONT_URL
+          ? `${window.APP_CONFIG.ENDPOINTS.GEOJSON}/${filename}`
+          : filename;
+
         // キャッシュバスター: タイムスタンプをクエリパラメータに追加
         const timestamp = new Date().getTime();
-        const response = await fetch(`${filename}?t=${timestamp}`);
+        const response = await fetch(`${geojsonPath}?t=${timestamp}`);
 
         if (!response.ok) {
           throw new Error(`ファイルが見つかりません: ${filename}`);
