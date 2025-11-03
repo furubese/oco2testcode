@@ -104,10 +104,9 @@ const storageStack = new StorageStack(app, 'StorageStack', config, {
 // Layer 4: ComputeStack - Compute
 // ========================================
 
-const computeStack = new ComputeStack(app, 'ComputeStack', {
+const computeStack = new ComputeStack(app, 'ComputeStack', config, {
   env,
   description: 'Compute layer: Lambda function for reasoning API',
-  config: config,
   lambdaExecutionRole: baseStack.lambdaExecutionRole,
   cacheTable: storageStack.cacheTable,
   geminiApiKeySecret: baseStack.geminiApiKeySecret,
@@ -124,10 +123,9 @@ const computeStack = new ComputeStack(app, 'ComputeStack', {
 // Layer 5: FrontendStack - Frontend
 // ========================================
 
-const frontendStack = new FrontendStack(app, 'FrontendStack', {
+const frontendStack = new FrontendStack(app, 'FrontendStack', config, {
   env,
   description: 'Frontend layer: CloudFront distribution and static website',
-  config: config,
   staticWebsiteBucket: storageStack.staticWebsiteBucket,
   geoJsonBucket: storageStack.geoJsonBucket,
   originAccessIdentity: storageStack.originAccessIdentity,
@@ -143,12 +141,10 @@ const frontendStack = new FrontendStack(app, 'FrontendStack', {
 // Layer 6: MonitoringStack - Observability
 // ========================================
 
-const monitoringStack = new MonitoringStack(app, 'MonitoringStack', {
+const monitoringStack = new MonitoringStack(app, 'MonitoringStack', config, {
   env,
   description: 'Observability layer: CloudWatch dashboards, alarms, and SNS topics',
-  config: config,
-  lambdaFunction: computeStack.reasoningFunction,
-  api: computeStack.api,
+  reasoningFunction: computeStack.reasoningFunction,
   cacheTable: storageStack.cacheTable,
   tags: {
     Layer: '6-Observability',

@@ -19,6 +19,7 @@ import logging
 import hashlib
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
+from decimal import Decimal
 
 import boto3
 import google.generativeai as genai
@@ -79,6 +80,29 @@ def get_gemini_api_key() -> str:
     except Exception as e:
         logger.error(f"Failed to retrieve API key from Secrets Manager: {e}")
         raise
+
+
+def convert_float_to_decimal(obj: Any) -> Any:
+    """
+    Convert float values to Decimal for DynamoDB compatibility
+
+    DynamoDB does not support Python float type. This function recursively
+    converts float values to Decimal type.
+
+    Args:
+        obj: Object to convert (can be dict, list, float, or any other type)
+
+    Returns:
+        Object with float values converted to Decimal
+    """
+    if isinstance(obj, float):
+        # Convert float to string first to avoid precision issues
+        return Decimal(str(obj))
+    elif isinstance(obj, dict):
+        return {k: convert_float_to_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_float_to_decimal(i) for i in obj]
+    return obj
 
 
 def generate_cache_key(lat: float, lon: float, date: str) -> str:
@@ -146,11 +170,14 @@ def save_to_cache(cache_key: str, reasoning: str, metadata: Dict[str, Any]) -> N
     # Calculate TTL timestamp
     ttl_timestamp = int((datetime.now() + timedelta(days=CACHE_TTL_DAYS)).timestamp())
 
+    # Convert float values to Decimal for DynamoDB compatibility
+    metadata_converted = convert_float_to_decimal(metadata)
+
     item = {
         'cache_key': cache_key,
         'reasoning': reasoning,
         'cached_at': datetime.now().isoformat(),
-        'metadata': metadata,
+        'metadata': metadata_converted,
         'ttl': ttl_timestamp
     }
 
