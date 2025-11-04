@@ -23,6 +23,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { EnvironmentConfig, getResourceName, getResourceTags } from '../config/environment';
 import * as path from 'path';
+import * as fs from 'fs';
 import { NagSuppressions } from 'cdk-nag';
 
 /**
@@ -85,11 +86,16 @@ export class ComputeStack extends cdk.Stack {
     // For local development without Docker, we'll use a PythonLayerVersion
     // which can be created using the AWS Lambda Powertools Python Layer approach
 
+    // Check if python directory already exists (manual build)
+    const layerPath = path.join(__dirname, '../lambda/layers/dependencies');
+    const pythonPath = path.join(layerPath, 'python');
+    const hasPythonDir = fs.existsSync(pythonPath);
+
     const dependenciesLayer = new lambda.LayerVersion(this, 'DependenciesLayer', {
       layerVersionName: getResourceName(config, 'reasoning-dependencies'),
       description: 'Dependencies for reasoning Lambda: google-generativeai, boto3',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/layers/dependencies'), {
-        bundling: {
+      code: lambda.Code.fromAsset(layerPath, {
+        bundling: hasPythonDir ? undefined : {
           image: lambda.Runtime.PYTHON_3_11.bundlingImage,
           command: [
             'bash',
