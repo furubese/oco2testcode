@@ -264,7 +264,7 @@ export class FrontendStack extends cdk.Stack {
     });
 
     // CloudFront Distribution ID
-    new ssm.StringParameter(this, 'CloudFrontDistributionId', {
+    new ssm.StringParameter(this, 'CloudFrontDistributionIdParam', {
       parameterName: `/${config.projectName}/${config.environment}/frontend/cloudfront/distribution-id`,
       stringValue: this.distribution.distributionId,
       description: 'CloudFront distribution ID',

@@ -144,8 +144,7 @@ const frontendStack = new FrontendStack(app, 'FrontendStack', config, {
 const monitoringStack = new MonitoringStack(app, 'MonitoringStack', config, {
   env,
   description: 'Observability layer: CloudWatch dashboards, alarms, and SNS topics',
-  lambdaFunction: computeStack.reasoningFunction,
-  api: computeStack.api,
+  reasoningFunction: computeStack.reasoningFunction,
   cacheTable: storageStack.cacheTable,
   tags: {
     Layer: '6-Observability',
