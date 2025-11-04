@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const CLOUDFRONT_URL = 'https://dy0dc92sru60q.cloudfront.net';
-const EXPECTED_API_GATEWAY = 'https://of1svnz3yk.execute-api.us-east-1.amazonaws.com/prod/';
+const EXPECTED_API_GATEWAY = 'https://of1svnz3yk.execute-api.us-east-1.amazonaws.com/prod';
 
 test.describe('CloudFront API Configuration', () => {
   test('should have correct API Gateway URL configured', async ({ page }) => {

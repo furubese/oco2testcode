@@ -174,8 +174,11 @@ export class FrontendStack extends cdk.Stack {
     let configContent = fs.readFileSync(configTemplatePath, 'utf-8');
 
     // Replace placeholders with actual values
+    // Remove trailing slash from API Gateway URL to avoid double slashes
+    const apiGatewayUrlClean = props.apiGatewayUrl.replace(/\/$/, '');
+
     configContent = configContent
-      .replace(/\{\{API_GATEWAY_URL\}\}/g, props.apiGatewayUrl)
+      .replace(/\{\{API_GATEWAY_URL\}\}/g, apiGatewayUrlClean)
       .replace(/\{\{CLOUDFRONT_URL\}\}/g, this.cloudFrontUrl)
       .replace(/\{\{GEOJSON_BASE_URL\}\}/g, `${this.cloudFrontUrl}/data/geojson`)
       .replace(/\{\{ENVIRONMENT\}\}/g, config.environment);
