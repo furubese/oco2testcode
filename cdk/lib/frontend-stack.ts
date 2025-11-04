@@ -22,6 +22,7 @@ import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
 import { EnvironmentConfig, getResourceName, getResourceTags } from '../config/environment';
 import * as path from 'path';
+import * as fs from 'fs';
 import { NagSuppressions } from 'cdk-nag';
 
 export interface FrontendStackProps extends cdk.StackProps {
@@ -167,17 +168,27 @@ export class FrontendStack extends cdk.Stack {
     // Deploy Static Website Files
     // ===========================
 
-    // Deploy sample_calendar.html, config.js, and other static files
+    // Read config.js template and replace placeholders
+    const configTemplatePath = path.join(__dirname, '../../config.js');
+    let configContent = fs.readFileSync(configTemplatePath, 'utf-8');
+
+    // Replace placeholders with actual values
+    configContent = configContent
+      .replace(/\{\{CLOUDFRONT_URL\}\}/g, this.cloudFrontUrl)
+      .replace(/\{\{GEOJSON_BASE_URL\}\}/g, `${this.cloudFrontUrl}/data/geojson`);
+
+    // Deploy sample_calendar.html and 404.html from file system
     new s3deploy.BucketDeployment(this, 'DeployWebsite', {
       sources: [
         s3deploy.Source.asset(path.join(__dirname, '../../'), {
           exclude: [
             '*',
             '!sample_calendar.html',
-            '!config.js',
             '!404.html',
           ],
         }),
+        // Deploy config.js with replaced values
+        s3deploy.Source.data('config.js', configContent),
       ],
       destinationBucket: staticBucket,
       distribution: this.distribution,
