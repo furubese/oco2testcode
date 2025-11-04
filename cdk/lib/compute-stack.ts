@@ -6,7 +6,7 @@
  * - Lambda Layer with dependencies (boto3)
  * - API Gateway REST API with CORS support
  * - Request validation and throttling
- * - Integration with DynamoDB cache and Bedrock
+ * - Integration with DynamoDB cache and Bedrock Nova AI
  * - Parameter Store exports for API endpoint
  *
  * Dependencies:
@@ -114,7 +114,7 @@ export class ComputeStack extends cdk.Stack {
 
     this.reasoningFunction = new lambda.Function(this, 'ReasoningFunction', {
       functionName: getResourceName(config, 'reasoning-api'),
-      description: 'CO2 anomaly reasoning API with Bedrock Nova Pro and DynamoDB caching',
+      description: 'CO2 anomaly reasoning API with Bedrock Nova AI and DynamoDB caching',
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'index.lambda_handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/reasoning-handler')),
@@ -124,9 +124,9 @@ export class ComputeStack extends cdk.Stack {
       memorySize: config.environment === 'prod' ? 512 : 256,
       environment: {
         DYNAMODB_TABLE_NAME: props.cacheTable.tableName,
+        CACHE_TTL_DAYS: config.cacheTtlDays.toString(),
         BEDROCK_MODEL_ID: 'us.amazon.nova-pro-v1:0',
         AWS_REGION: 'us-east-1',
-        CACHE_TTL_DAYS: config.cacheTtlDays.toString(),
         ENVIRONMENT: config.environment,
         LOG_LEVEL: config.environment === 'dev' ? 'DEBUG' : 'INFO',
       },
@@ -138,20 +138,6 @@ export class ComputeStack extends cdk.Stack {
 
     // Grant DynamoDB permissions to Lambda
     props.cacheTable.grantReadWriteData(this.reasoningFunction);
-
-    // Grant Bedrock permissions to Lambda
-    props.lambdaExecutionRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          'bedrock:InvokeModel',
-          'bedrock:InvokeModelWithResponseStream',
-        ],
-        resources: [
-          `arn:aws:bedrock:us-east-1::foundation-model/us.amazon.nova-pro-v1:0`,
-        ],
-      })
-    );
 
     // Provisioned concurrency for production (reduces cold starts)
     if (config.provisionedConcurrency > 0) {

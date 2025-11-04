@@ -36,6 +36,15 @@ export class BaseStack extends cdk.Stack {
       ],
     });
 
+    // Grant access to Bedrock for AI model invocation
+    this.lambdaExecutionRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['bedrock:InvokeModel'],
+        resources: ['arn:aws:bedrock:us-east-1::foundation-model/us.amazon.nova-pro-v1:0'],
+      })
+    );
+
     // Grant access to Parameter Store for reading configuration
     this.lambdaExecutionRole.addToPolicy(
       new iam.PolicyStatement({
