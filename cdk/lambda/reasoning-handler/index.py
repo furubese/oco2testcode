@@ -2,13 +2,13 @@
 Lambda Handler for CO2 Anomaly Reasoning API
 
 This Lambda function handles API requests to generate AI reasoning for CO2 anomalies
-using Google Gemini API with DynamoDB caching.
+using AWS Bedrock Nova Pro with DynamoDB caching.
 
 Environment Variables:
     DYNAMODB_TABLE_NAME: Name of DynamoDB cache table
-    GEMINI_API_KEY_SECRET_NAME: Name of Secrets Manager secret for Gemini API key
+    BEDROCK_MODEL_ID: Bedrock model ID (default: us.amazon.nova-pro-v1:0)
+    AWS_REGION: AWS region for Bedrock (default: us-east-1)
     CACHE_TTL_DAYS: Cache TTL in days (default: 90)
-    GEMINI_MODEL: Gemini model version (default: gemini-2.0-flash-exp)
     ENVIRONMENT: Deployment environment (dev, staging, prod)
     LOG_LEVEL: Logging level (DEBUG, INFO, WARNING, ERROR)
 """
@@ -22,7 +22,6 @@ from typing import Dict, Any, Optional
 from decimal import Decimal
 
 import boto3
-import google.generativeai as genai
 
 # Configure logging
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
@@ -31,17 +30,16 @@ logger.setLevel(getattr(logging, LOG_LEVEL))
 
 # AWS clients
 dynamodb = boto3.resource('dynamodb')
-secrets_client = boto3.client('secretsmanager')
+bedrock_region = os.environ.get('AWS_REGION', 'us-east-1')
+bedrock_client = boto3.client('bedrock-runtime', region_name=bedrock_region)
 
 # Environment variables
 TABLE_NAME = os.environ['DYNAMODB_TABLE_NAME']
-SECRET_NAME = os.environ['GEMINI_API_KEY_SECRET_NAME']
+BEDROCK_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID', 'us.amazon.nova-pro-v1:0')
 CACHE_TTL_DAYS = int(os.environ.get('CACHE_TTL_DAYS', '90'))
-GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash-exp')
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'dev')
 
-# Global cache for API key and table reference
-_api_key_cache: Optional[str] = None
+# Global cache for table reference
 _table = None
 
 
@@ -51,35 +49,6 @@ def get_dynamodb_table():
     if _table is None:
         _table = dynamodb.Table(TABLE_NAME)
     return _table
-
-
-def get_gemini_api_key() -> str:
-    """
-    Retrieve Gemini API key from AWS Secrets Manager (cached)
-
-    Returns:
-        str: Gemini API key
-    """
-    global _api_key_cache
-
-    if _api_key_cache is not None:
-        return _api_key_cache
-
-    try:
-        response = secrets_client.get_secret_value(SecretId=SECRET_NAME)
-        secret_string = response['SecretString']
-
-        # Secret can be plain string or JSON
-        try:
-            secret_dict = json.loads(secret_string)
-            _api_key_cache = secret_dict.get('apiKey') or secret_dict.get('GEMINI_API_KEY')
-        except json.JSONDecodeError:
-            _api_key_cache = secret_string
-
-        return _api_key_cache
-    except Exception as e:
-        logger.error(f"Failed to retrieve API key from Secrets Manager: {e}")
-        raise
 
 
 def convert_float_to_decimal(obj: Any) -> Any:
@@ -189,7 +158,7 @@ def save_to_cache(cache_key: str, reasoning: str, metadata: Dict[str, Any]) -> N
         # Don't raise - caching failure shouldn't break the request
 
 
-def generate_reasoning_with_gemini(
+def generate_reasoning_with_bedrock(
     lat: float,
     lon: float,
     co2: float,
@@ -199,7 +168,7 @@ def generate_reasoning_with_gemini(
     zscore: float
 ) -> str:
     """
-    Generate reasoning using Google Gemini API
+    Generate reasoning using AWS Bedrock Nova Pro
     Uses Japanese prompt matching the Flask implementation
 
     Args:
@@ -214,10 +183,7 @@ def generate_reasoning_with_gemini(
     Returns:
         str: AI-generated reasoning
     """
-    api_key = get_gemini_api_key()
-    genai.configure(api_key=api_key)
-
-    # Map severity to Japanese (matching gemini_client.py logic)
+    # Map severity to Japanese
     severity_ja = {
         "high": "高",
         "medium": "中",
@@ -225,7 +191,7 @@ def generate_reasoning_with_gemini(
         "unknown": "不明"
     }.get(severity, severity)
 
-    # Create prompt (matching gemini_client.py generate_prompt function)
+    # Create prompt (matching previous implementation)
     prompt = f"""以下のCO2濃度異常データについて、専門家の視点から分析し、日本語で200-300文字程度で推論してください。
 
 【観測データ】
@@ -242,19 +208,52 @@ def generate_reasoning_with_gemini(
 """
 
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        response = model.generate_content(prompt)
+        # Bedrock Converse API request
+        request_body = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            "inferenceConfig": {
+                "maxTokens": 512,
+                "temperature": 0.7,
+                "topP": 0.9
+            }
+        }
 
-        # Check for empty response (matching gemini_client.py validation)
-        if not response or not response.text:
-            raise Exception("Empty response received from Gemini API")
+        logger.debug(f"Calling Bedrock with model: {BEDROCK_MODEL_ID}")
 
-        reasoning = response.text.strip()
+        # Call Bedrock Converse API
+        response = bedrock_client.converse(
+            modelId=BEDROCK_MODEL_ID,
+            messages=request_body["messages"],
+            inferenceConfig=request_body["inferenceConfig"]
+        )
+
+        # Extract response text
+        if not response or 'output' not in response:
+            raise Exception("Empty response received from Bedrock API")
+
+        output = response['output']
+        if 'message' not in output or 'content' not in output['message']:
+            raise Exception("Invalid response structure from Bedrock API")
+
+        content = output['message']['content']
+        if not content or len(content) == 0:
+            raise Exception("Empty content in Bedrock response")
+
+        reasoning = content[0]['text'].strip()
 
         logger.info(f"Generated reasoning for ({lat}, {lon}): {len(reasoning)} chars")
         return reasoning
     except Exception as e:
-        logger.error(f"Gemini API error: {e}")
+        logger.error(f"Bedrock API error: {e}")
         raise Exception(f"Failed to generate reasoning: {str(e)}")
 
 
@@ -365,7 +364,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
 
         # Cache miss - generate new reasoning
-        reasoning = generate_reasoning_with_gemini(
+        reasoning = generate_reasoning_with_bedrock(
             lat, lon, co2, deviation, date, severity, zscore
         )
 

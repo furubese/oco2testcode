@@ -3,14 +3,14 @@
  *
  * This stack creates:
  * - Lambda function for CO2 anomaly reasoning API
- * - Lambda Layer with dependencies (google-generativeai, boto3)
+ * - Lambda Layer with dependencies (boto3)
  * - API Gateway REST API with CORS support
  * - Request validation and throttling
- * - Integration with DynamoDB cache and Secrets Manager
+ * - Integration with DynamoDB cache and Bedrock
  * - Parameter Store exports for API endpoint
  *
  * Dependencies:
- * - BaseStack: lambdaExecutionRole, geminiApiKeySecret
+ * - BaseStack: lambdaExecutionRole
  * - StorageStack: cacheTable
  */
 
@@ -31,7 +31,7 @@ import { NagSuppressions } from 'cdk-nag';
  */
 export interface ComputeStackProps extends cdk.StackProps {
   /**
-   * Lambda execution role from BaseStack with Secrets Manager permissions
+   * Lambda execution role from BaseStack with Bedrock permissions
    */
   lambdaExecutionRole: iam.Role;
 
@@ -39,11 +39,6 @@ export interface ComputeStackProps extends cdk.StackProps {
    * DynamoDB cache table from StorageStack
    */
   cacheTable: cdk.aws_dynamodb.Table;
-
-  /**
-   * Gemini API key secret from BaseStack
-   */
-  geminiApiKeySecret: cdk.aws_secretsmanager.Secret;
 }
 
 /**
@@ -93,7 +88,7 @@ export class ComputeStack extends cdk.Stack {
 
     const dependenciesLayer = new lambda.LayerVersion(this, 'DependenciesLayer', {
       layerVersionName: getResourceName(config, 'reasoning-dependencies'),
-      description: 'Dependencies for reasoning Lambda: google-generativeai, boto3',
+      description: 'Dependencies for reasoning Lambda: boto3',
       code: lambda.Code.fromAsset(layerPath, {
         bundling: hasPythonDir ? undefined : {
           image: lambda.Runtime.PYTHON_3_11.bundlingImage,
@@ -119,7 +114,7 @@ export class ComputeStack extends cdk.Stack {
 
     this.reasoningFunction = new lambda.Function(this, 'ReasoningFunction', {
       functionName: getResourceName(config, 'reasoning-api'),
-      description: 'CO2 anomaly reasoning API with Gemini AI and DynamoDB caching',
+      description: 'CO2 anomaly reasoning API with Bedrock Nova Pro and DynamoDB caching',
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'index.lambda_handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/reasoning-handler')),
@@ -129,9 +124,9 @@ export class ComputeStack extends cdk.Stack {
       memorySize: config.environment === 'prod' ? 512 : 256,
       environment: {
         DYNAMODB_TABLE_NAME: props.cacheTable.tableName,
-        GEMINI_API_KEY_SECRET_NAME: props.geminiApiKeySecret.secretName,
+        BEDROCK_MODEL_ID: 'us.amazon.nova-pro-v1:0',
+        AWS_REGION: 'us-east-1',
         CACHE_TTL_DAYS: config.cacheTtlDays.toString(),
-        GEMINI_MODEL: 'gemini-2.0-flash-exp',
         ENVIRONMENT: config.environment,
         LOG_LEVEL: config.environment === 'dev' ? 'DEBUG' : 'INFO',
       },
@@ -143,6 +138,20 @@ export class ComputeStack extends cdk.Stack {
 
     // Grant DynamoDB permissions to Lambda
     props.cacheTable.grantReadWriteData(this.reasoningFunction);
+
+    // Grant Bedrock permissions to Lambda
+    props.lambdaExecutionRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+        ],
+        resources: [
+          `arn:aws:bedrock:us-east-1::foundation-model/us.amazon.nova-pro-v1:0`,
+        ],
+      })
+    );
 
     // Provisioned concurrency for production (reduces cold starts)
     if (config.provisionedConcurrency > 0) {
