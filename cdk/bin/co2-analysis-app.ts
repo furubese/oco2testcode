@@ -14,10 +14,10 @@ import { AwsSolutionsChecks } from 'cdk-nag';
  * CO2 Anomaly Analysis System - CDK Application
  *
  * This application deploys a serverless architecture for analyzing CO2 anomalies
- * using AWS services and Google Gemini AI.
+ * using AWS services and Bedrock Nova Pro.
  *
  * Stack Deployment Order:
- * 1. BaseStack - IAM roles, secrets, parameters
+ * 1. BaseStack - IAM roles, parameters
  * 2. NetworkStack - VPC, security groups (optional)
  * 3. StorageStack - DynamoDB, S3 buckets
  * 4. ComputeStack - Lambda function and layer
@@ -64,7 +64,7 @@ console.log(`   Account: ${env.account || '(default)'}\n`);
 
 const baseStack = new BaseStack(app, 'BaseStack', config, {
   env,
-  description: 'Foundation layer: IAM roles, secrets, and configuration parameters',
+  description: 'Foundation layer: IAM roles and configuration parameters',
   tags: {
     Layer: '1-Foundation',
   },
@@ -109,7 +109,6 @@ const computeStack = new ComputeStack(app, 'ComputeStack', config, {
   description: 'Compute layer: Lambda function for reasoning API',
   lambdaExecutionRole: baseStack.lambdaExecutionRole,
   cacheTable: storageStack.cacheTable,
-  geminiApiKeySecret: baseStack.geminiApiKeySecret,
   tags: {
     Layer: '4-Compute',
   },

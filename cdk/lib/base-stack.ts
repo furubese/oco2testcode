@@ -5,7 +5,7 @@
  * Full implementation should be completed in a separate task.
  *
  * This stack should create:
- * - IAM roles for Lambda execution
+ * - IAM roles for Lambda execution with Bedrock permissions
  * - Base parameters
  */
 

@@ -31,7 +31,7 @@ import { NagSuppressions } from 'cdk-nag';
  */
 export interface ComputeStackProps extends cdk.StackProps {
   /**
-   * Lambda execution role from BaseStack with Secrets Manager permissions
+   * Lambda execution role from BaseStack with Bedrock permissions
    */
   lambdaExecutionRole: iam.Role;
 
@@ -138,12 +138,6 @@ export class ComputeStack extends cdk.Stack {
 
     // Grant DynamoDB permissions to Lambda
     props.cacheTable.grantReadWriteData(this.reasoningFunction);
-
-    // Grant Bedrock permissions to Lambda
-    this.reasoningFunction.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['bedrock:InvokeModel'],
-      resources: ['arn:aws:bedrock:us-east-1::foundation-model/us.amazon.nova-pro-v1:0'],
-    }));
 
     // Provisioned concurrency for production (reduces cold starts)
     if (config.provisionedConcurrency > 0) {
