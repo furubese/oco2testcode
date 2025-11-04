@@ -29,6 +29,7 @@ export interface FrontendStackProps extends cdk.StackProps {
   staticWebsiteBucket: s3.IBucket;
   geoJsonBucket: s3.IBucket;
   originAccessIdentity: cloudfront.OriginAccessIdentity;
+  apiGatewayUrl: string;
 }
 
 export class FrontendStack extends cdk.Stack {
@@ -174,8 +175,10 @@ export class FrontendStack extends cdk.Stack {
 
     // Replace placeholders with actual values
     configContent = configContent
+      .replace(/\{\{API_GATEWAY_URL\}\}/g, props.apiGatewayUrl)
       .replace(/\{\{CLOUDFRONT_URL\}\}/g, this.cloudFrontUrl)
-      .replace(/\{\{GEOJSON_BASE_URL\}\}/g, `${this.cloudFrontUrl}/data/geojson`);
+      .replace(/\{\{GEOJSON_BASE_URL\}\}/g, `${this.cloudFrontUrl}/data/geojson`)
+      .replace(/\{\{ENVIRONMENT\}\}/g, config.environment);
 
     // Deploy sample_calendar.html and 404.html from file system
     new s3deploy.BucketDeployment(this, 'DeployWebsite', {
