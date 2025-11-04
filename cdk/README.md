@@ -40,7 +40,7 @@ This CDK application deploys a complete serverless infrastructure for the CO₂ 
 | **CDN** | CloudFront | Content delivery |
 | **Security** | Secrets Manager + IAM | API keys + access control |
 | **Monitoring** | CloudWatch + X-Ray + SNS | Logs, metrics, tracing, alerts |
-| **AI** | Google Gemini API | Reasoning generation |
+| **AI** | Amazon Bedrock (Nova Pro) | Reasoning generation |
 
 ## Architecture
 
@@ -60,8 +60,8 @@ CloudFront (CDN)
                           ↓
         ┌─────────────────┼─────────────────┐
         ↓                 ↓                 ↓
-   DynamoDB          Secrets Mgr      Gemini API
-   (Cache)           (API Key)        (External)
+   DynamoDB          IAM Role       Amazon Bedrock
+   (Cache)         (Permissions)    (Nova Pro)
 ```
 
 ### Stack Dependency Graph
@@ -88,8 +88,7 @@ FrontendStack  MonitoringStack
 **Purpose**: Shared resources used by all other stacks
 
 **Resources**:
-- IAM execution role for Lambda functions
-- Secrets Manager secret for Gemini API key
+- IAM execution role for Lambda functions with Bedrock permissions
 - SSM parameters for configuration (model, TTL, timeouts)
 
 **Dependencies**: None
@@ -152,8 +151,7 @@ FrontendStack  MonitoringStack
   - X-Ray tracing (optional)
   - Provisioned concurrency in production (reduces cold starts)
 - **Lambda Layer**: Python dependencies
-  - `google-generativeai`
-  - `boto3`
+  - `boto3` (AWS SDK)
   - Bundled during deployment
 
 **Dependencies**: BaseStack, StorageStack
@@ -241,14 +239,20 @@ FrontendStack  MonitoringStack
    - S3 buckets
    - CloudFront distributions
    - IAM roles and policies
-   - Secrets Manager secrets
    - CloudWatch resources
+   - **Bedrock model access** (bedrock:InvokeModel)
 
 3. **AWS Credentials**: Configure AWS credentials
    ```bash
    aws configure
    # Enter: Access Key ID, Secret Access Key, Region, Output format
    ```
+
+4. **Enable Amazon Bedrock Models**:
+   - Navigate to Amazon Bedrock console in us-east-1 region
+   - Go to "Model access" in the left sidebar
+   - Request access to "Amazon Nova Pro" model
+   - Access is typically granted instantly for AWS accounts in good standing
 
 ## Getting Started
 
@@ -297,24 +301,22 @@ Edit `cdk.json` and update the `environmentConfig` section:
 }
 ```
 
-### 4. Store Gemini API Key
+### 4. Configure AWS Region
 
-Before deploying, store your Gemini API key in Secrets Manager:
+Amazon Bedrock Nova Pro is available in us-east-1 region. Ensure your `cdk.json` is configured correctly:
 
-```bash
-# Option 1: AWS Console
-# Go to Secrets Manager → Store a new secret → Other type of secret
-# Key: GEMINI_API_KEY, Value: your-api-key-here
-# Secret name: co2-analysis-dev-gemini-api-key
-
-# Option 2: AWS CLI
-aws secretsmanager create-secret \
-    --name co2-analysis-dev-gemini-api-key \
-    --description "Google Gemini API Key for CO2 Analysis" \
-    --secret-string '{"GEMINI_API_KEY":"your-api-key-here"}'
+```json
+{
+  "environmentConfig": {
+    "dev": {
+      "region": "us-east-1",  // ← Required for Bedrock Nova Pro
+      ...
+    }
+  }
+}
 ```
 
-**Note**: The BaseStack creates the secret placeholder. You need to update it with your actual API key after deployment.
+**Note**: The Lambda function requires IAM permissions to invoke Bedrock models, which are automatically configured by the BaseStack.
 
 ## Deployment
 
@@ -358,11 +360,12 @@ cdk deploy --all --context environment=prod
 
 ### Post-Deployment Steps
 
-1. **Update Gemini API Key Secret**:
+1. **Verify Bedrock Model Access**:
    ```bash
-   aws secretsmanager update-secret \
-       --secret-id co2-analysis-dev-gemini-api-key \
-       --secret-string '{"GEMINI_API_KEY":"your-actual-api-key"}'
+   # Test Bedrock access
+   aws bedrock list-foundation-models \
+       --region us-east-1 \
+       --query 'modelSummaries[?modelId==`amazon.nova-pro-v1:0`]'
    ```
 
 2. **Upload GeoJSON Files to S3**:
@@ -377,7 +380,17 @@ cdk deploy --all --context environment=prod
    aws s3 cp ../data/geojson/ s3://BUCKET-NAME/data/geojson/ --recursive
    ```
 
-3. **Get CloudFront URL**:
+3. **Test Lambda Function with Bedrock**:
+   ```bash
+   # Invoke the Lambda function to verify Bedrock integration
+   aws lambda invoke \
+       --function-name co2-analysis-dev-reasoning-function \
+       --payload '{"body": "{\"lat\": 35.6762, \"lon\": 139.6503, \"co2\": 420.5, \"deviation\": 5.0, \"date\": \"2023-01-15\", \"severity\": \"high\", \"zscore\": 2.5}"}' \
+       response.json
+   cat response.json
+   ```
+
+4. **Get CloudFront URL**:
    ```bash
    aws cloudformation describe-stacks \
        --stack-name FrontendStack \
@@ -385,7 +398,7 @@ cdk deploy --all --context environment=prod
        --output text
    ```
 
-4. **Subscribe to SNS Alarms** (if email not auto-confirmed):
+5. **Subscribe to SNS Alarms** (if email not auto-confirmed):
    - Check your email for SNS subscription confirmation
    - Click "Confirm subscription"
 
@@ -634,9 +647,19 @@ cdk bootstrap
 **Error**: Lambda function times out after 30 seconds
 
 **Solution**:
-- Check Gemini API response time
+- Check Bedrock API response time
 - Increase Lambda timeout in `compute-stack.ts` (max 900 seconds)
 - Enable provisioned concurrency to reduce cold starts
+
+#### 3a. Bedrock Access Denied
+
+**Error**: `AccessDeniedException: User is not authorized to perform: bedrock:InvokeModel`
+
+**Solution**:
+- Verify Bedrock model access is enabled in the AWS Console
+- Check Lambda execution role has `bedrock:InvokeModel` permission
+- Ensure you're using the us-east-1 region
+- Verify the model ID is correct: `amazon.nova-pro-v1:0`
 
 #### 4. DynamoDB Throttling
 
@@ -660,17 +683,14 @@ aws cloudfront get-distribution \
     --query 'Distribution.Status'
 ```
 
-#### 6. Secret Not Found Error
+#### 6. Bedrock Model Not Available
 
-**Error**: `ResourceNotFoundException: Secrets Manager can't find the specified secret`
+**Error**: `ValidationException: The model ID is not supported`
 
-**Solution**: Update the secret with your Gemini API key after BaseStack deployment:
-
-```bash
-aws secretsmanager update-secret \
-    --secret-id co2-analysis-dev-gemini-api-key \
-    --secret-string '{"GEMINI_API_KEY":"your-key-here"}'
-```
+**Solution**:
+- Verify model access is enabled in the Bedrock console
+- Use the correct model ID: `amazon.nova-pro-v1:0`
+- Ensure you're deploying in the us-east-1 region
 
 ### Debugging
 
@@ -721,26 +741,33 @@ Assumptions:
 | Service | Usage | Cost |
 |---------|-------|------|
 | **Lambda** | 5,000 invocations × 3s × 256MB | $0.20 |
+| **Bedrock Nova Pro** | 5,000 requests (cache miss) | ~$25.00 |
 | **DynamoDB** | 10,000 reads, 5,000 writes | $1.25 |
 | **S3** | 10 GB storage + requests | $0.50 |
 | **CloudFront** | 10 GB data transfer | $1.00 |
 | **API Gateway** | 10,000 requests | $0.35 |
-| **Secrets Manager** | 1 secret | $0.40 |
 | **CloudWatch** | Logs + metrics | $5.00 |
 | **Data Transfer** | Outbound | $0.90 |
-| **Total** | | **~$9.60/month** |
+| **Total** | | **~$34.20/month** |
 
 **Cost optimization tips**:
+- **Maximize cache hit rate** (biggest cost saver - reduces Bedrock calls)
 - Enable CloudFront caching (reduces Lambda invocations)
 - Use DynamoDB on-demand billing (current default)
 - Set CloudWatch Logs retention to 7 days (dev) or 30 days (prod)
 - Delete old CloudFront logs with S3 lifecycle policies
 
+**Bedrock Pricing Note**:
+- Nova Pro: ~$5 per 1,000 requests (varies by input/output tokens)
+- See [Amazon Bedrock Pricing](https://aws.amazon.com/bedrock/pricing/) for details
+- Cache strategy is critical for cost control
+
 ### Production Cost Estimate
 
 For production with 100,000 requests/month:
-- **Estimated cost**: $50-100/month
-- Main cost drivers: Lambda invocations, CloudFront data transfer, CloudWatch Logs
+- **Estimated cost**: $250-350/month
+- Main cost drivers: **Bedrock API calls**, Lambda invocations, CloudFront data transfer
+- Cache hit rate significantly impacts total cost (80% hit rate = ~$150/month saved)
 
 ## Security
 
@@ -775,7 +802,7 @@ npx cdk synth --context environment=dev
 - Service-specific principals only
 
 ✅ **Data Protection**
-- Secrets Manager for API keys (encrypted at rest)
+- IAM roles for Bedrock access (no API keys stored)
 - DynamoDB encryption at rest
 - All data in transit uses TLS/HTTPS
 - Point-in-time recovery (production only)
@@ -810,9 +837,8 @@ All CDK Nag suppressions are documented with proper justifications. To validate 
 ```
 
 **Summary of Suppressions:**
-- AwsSolutions-SMG4: Third-party API key (manual rotation)
 - AwsSolutions-IAM4: AWS managed policies (best practices)
-- AwsSolutions-IAM5: DynamoDB GSI wildcard (required)
+- AwsSolutions-IAM5: DynamoDB GSI wildcard and Bedrock wildcard (required for model access)
 - AwsSolutions-DDB3: PITR disabled for dev (cost optimization)
 - AwsSolutions-CFR1: Global scientific data access
 - AwsSolutions-CFR2: WAF enabled for prod/staging only

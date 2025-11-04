@@ -43,13 +43,13 @@ Examples:
 
 | Parameter Path | Description | Value Type |
 |---------------|-------------|------------|
-| `/co2-analysis/{env}/config/gemini-model` | Gemini AI model identifier | String |
+| `/co2-analysis/{env}/config/bedrock-model` | Bedrock model identifier | String |
+| `/co2-analysis/{env}/config/bedrock-region` | Bedrock region | String |
 | `/co2-analysis/{env}/config/cache-ttl-days` | Cache TTL in days | String (number) |
 | `/co2-analysis/{env}/config/function-timeout-seconds` | Lambda timeout | String (number) |
 
 **Key Resources:**
-- Lambda Execution Role (exported via props)
-- Gemini API Key Secret (Secrets Manager)
+- Lambda Execution Role with Bedrock permissions (exported via props)
 
 **File**: `cdk/lib/base-stack.ts:80-104`
 
@@ -97,8 +97,7 @@ Examples:
 
 **Cross-Stack Dependencies:**
 - Receives DynamoDB table reference via props from StorageStack
-- Receives Lambda execution role via props from BaseStack
-- Receives Gemini API key secret via props from BaseStack
+- Receives Lambda execution role with Bedrock permissions via props from BaseStack
 
 **File**: `cdk/lib/compute-stack.ts:25-37, 146-177`
 
@@ -235,14 +234,20 @@ All parameters use `ssm.ParameterTier.STANDARD`:
 
 ### Sensitive Data
 
-**Important**: Sensitive credentials (API keys, passwords) are stored in AWS Secrets Manager, NOT Parameter Store:
+**Important**: With Bedrock, no API keys or secrets are required. Authentication is handled via IAM roles:
 
 ```typescript
-// Secrets Manager for sensitive data
-this.geminiApiKeySecret = new secretsmanager.Secret(this, 'GeminiApiKeySecret', {
-  secretName: getResourceName(config, 'gemini-api-key'),
-});
+// IAM role with Bedrock permissions
+this.lambdaExecutionRole.addToPolicy(
+  new iam.PolicyStatement({
+    effect: iam.Effect.ALLOW,
+    actions: ['bedrock:InvokeModel'],
+    resources: ['arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0'],
+  })
+);
 ```
+
+This eliminates the need for Secrets Manager and improves security.
 
 ## Usage Examples
 
@@ -250,16 +255,22 @@ this.geminiApiKeySecret = new secretsmanager.Secret(this, 'GeminiApiKeySecret', 
 
 ```python
 import boto3
+import os
 
 ssm = boto3.client('ssm')
 environment = os.environ['ENVIRONMENT']
 project = os.environ['PROJECT_NAME']
 
-# Read configuration
+# Read Bedrock configuration
 response = ssm.get_parameter(
-    Name=f'/{project}/{environment}/config/gemini-model'
+    Name=f'/{project}/{environment}/config/bedrock-model'
 )
-model_name = response['Parameter']['Value']
+bedrock_model = response['Parameter']['Value']  # amazon.nova-pro-v1:0
+
+response = ssm.get_parameter(
+    Name=f'/{project}/{environment}/config/bedrock-region'
+)
+bedrock_region = response['Parameter']['Value']  # us-east-1
 
 # Read cross-stack resource
 response = ssm.get_parameter(
@@ -271,6 +282,18 @@ table_name = response['Parameter']['Value']
 ### Reading Parameters via AWS CLI
 
 ```bash
+# Get Bedrock model configuration
+aws ssm get-parameter \
+  --name /co2-analysis/dev/config/bedrock-model \
+  --query 'Parameter.Value' \
+  --output text
+
+# Get Bedrock region
+aws ssm get-parameter \
+  --name /co2-analysis/dev/config/bedrock-region \
+  --query 'Parameter.Value' \
+  --output text
+
 # Get API Gateway URL
 aws ssm get-parameter \
   --name /co2-analysis/dev/compute/api-gateway/url \
@@ -403,7 +426,7 @@ Parameter Store is region-specific. Ensure your stacks are deployed in the same 
 1. **Naming Consistency**: Always use `getResourceName()` utility for consistent naming
 2. **Type Safety**: Prefer direct props passing for CDK resources
 3. **Runtime Access**: Use Parameter Store for runtime configuration
-4. **Secrets Management**: Never store sensitive data in Parameter Store; use Secrets Manager
+4. **IAM-Based Authentication**: Use IAM roles instead of API keys for AWS services (like Bedrock)
 5. **Parameter Documentation**: Always include descriptive `description` field
 6. **Scoped IAM**: Limit Parameter Store permissions to specific paths
 7. **Environment Isolation**: Keep parameters segregated by environment
