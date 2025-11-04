@@ -244,13 +244,12 @@ export class ComputeStack extends cdk.Stack {
           },
           date: {
             type: apigateway.JsonSchemaType.STRING,
-            description: 'Observation date (YYYY-MM-DD)',
-            pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+            description: 'Observation date (YYYY-MM-DD) or "unknown"',
           },
           severity: {
             type: apigateway.JsonSchemaType.STRING,
             description: 'Severity level (optional)',
-            enum: ['low', 'medium', 'high'],
+            enum: ['low', 'medium', 'high', 'unknown'],
           },
           zscore: {
             type: apigateway.JsonSchemaType.NUMBER,

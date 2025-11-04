@@ -1,0 +1,7 @@
+{
+  "body": "{\"lat\": 35.6812, \"lon\": 139.7671, \"co2\": 420.5, \"deviation\": 8.2, \"date\": \"2023-05-15\", \"severity\": \"high\", \"zscore\": 3.5}",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json"
+  }
+}

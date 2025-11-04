@@ -221,7 +221,8 @@ def generate_reasoning_with_gemini(
     severity_ja = {
         "high": "高",
         "medium": "中",
-        "low": "低"
+        "low": "低",
+        "unknown": "不明"
     }.get(severity, severity)
 
     # Create prompt (matching gemini_client.py generate_prompt function)
@@ -322,8 +323,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 })
             }
 
-        # Validate severity value (matching Flask implementation)
-        if severity not in ['high', 'medium', 'low']:
+        # Validate severity value (accepting 'unknown' from frontend)
+        # Frontend may send 'unknown' when severity is not available (sample_calendar.html:567)
+        if severity not in ['high', 'medium', 'low', 'unknown']:
             logger.warning(f"Invalid severity value: {severity}")
             return {
                 'statusCode': 400,
@@ -333,7 +335,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 },
                 'body': json.dumps({
                     'error': 'Invalid severity value',
-                    'message': 'severity must be one of: high, medium, low'
+                    'message': 'severity must be one of: high, medium, low, unknown'
                 })
             }
 
