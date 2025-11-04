@@ -129,6 +129,7 @@ const frontendStack = new FrontendStack(app, 'FrontendStack', config, {
   staticWebsiteBucket: storageStack.staticWebsiteBucket,
   geoJsonBucket: storageStack.geoJsonBucket,
   originAccessIdentity: storageStack.originAccessIdentity,
+  apiGatewayUrl: computeStack.api.url,
   tags: {
     Layer: '5-Frontend',
   },

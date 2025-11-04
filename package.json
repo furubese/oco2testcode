@@ -1,5 +1,24 @@
 {
+  "name": "vibe-kanban-co2-reasoning",
+  "version": "1.0.0",
+  "description": "CloudFront CO2 Reasoning Site E2E Tests",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "playwright:install": "playwright install",
+    "playwright:install-deps": "playwright install-deps"
+  },
   "dependencies": {
-    "@playwright/test": "^1.56.1"
+    "@playwright/test": "^1.56.1",
+    "playwright": "^1.56.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
   }
 }

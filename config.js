@@ -6,9 +6,9 @@
  */
 
 const CONFIG = {
-  // API Gateway URL - will be populated from Parameter Store during deployment
+  // API Gateway URL - will be populated from CDK deployment
   // Format: https://{api-id}.execute-api.{region}.amazonaws.com/{stage}
-  API_GATEWAY_URL: 'http://localhost:5000', // Default to local development
+  API_GATEWAY_URL: '{{API_GATEWAY_URL}}',
 
   // CloudFront URL - will be populated from CloudFormation during deployment
   // For local development, this will be empty and fall back to relative paths
@@ -20,7 +20,7 @@ const CONFIG = {
   GEOJSON_BASE_URL: '{{GEOJSON_BASE_URL}}',
 
   // Environment
-  ENVIRONMENT: 'dev',
+  ENVIRONMENT: '{{ENVIRONMENT}}',
 
   // Cache settings
   CACHE_ENABLED: true,
