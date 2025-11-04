@@ -299,7 +299,7 @@ export class FrontendStack extends cdk.Stack {
     });
 
     // GeoJSON Bucket Name
-    new ssm.StringParameter(this, 'GeoJsonBucketName', {
+    new ssm.StringParameter(this, 'GeoJsonBucketNameParam', {
       parameterName: `/${config.projectName}/${config.environment}/frontend/s3/geojson-bucket-name`,
       stringValue: geoJsonBucket.bucketName,
       description: 'S3 GeoJSON data bucket name',
