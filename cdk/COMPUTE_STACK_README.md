@@ -22,8 +22,8 @@ The ComputeStack implements the serverless compute layer for the CO2 Anomaly Ana
          │           │
          ▼           ▼
 ┌──────────────┐  ┌────────────────┐
-│  DynamoDB    │  │ Secrets Manager│
-│  Cache Table │  │  Gemini API Key│
+│  DynamoDB    │  │ Amazon Bedrock │
+│  Cache Table │  │   Nova Pro     │
 └──────────────┘  └────────────────┘
 ```
 
@@ -33,9 +33,7 @@ The ComputeStack implements the serverless compute layer for the CO2 Anomaly Ana
 - **Name**: `co2-analysis-{env}-reasoning-dependencies`
 - **Runtime**: Python 3.11
 - **Dependencies**:
-  - google-generativeai==0.3.2
-  - boto3==1.34.0
-  - botocore==1.34.0
+  - boto3 (AWS SDK - includes Bedrock client)
 
 ### 2. Lambda Function - Reasoning API
 - **Name**: `co2-analysis-{env}-reasoning-api`
@@ -112,9 +110,9 @@ The Lambda function uses the following environment variables:
 
 ```bash
 DYNAMODB_TABLE_NAME=co2-analysis-{env}-cache
-GEMINI_API_KEY_SECRET_NAME=co2-analysis-{env}-gemini-api-key
+BEDROCK_MODEL_ID=amazon.nova-pro-v1:0
+BEDROCK_REGION=us-east-1
 CACHE_TTL_DAYS=90
-GEMINI_MODEL=gemini-2.0-flash-exp
 ENVIRONMENT=dev|staging|prod
 LOG_LEVEL=DEBUG|INFO
 ```
@@ -146,8 +144,7 @@ The stack exports the following parameters to AWS Systems Manager Parameter Stor
 ComputeStack depends on:
 
 1. **BaseStack** (Layer 1):
-   - `lambdaExecutionRole` - IAM role for Lambda execution
-   - `geminiApiKeySecret` - Secrets Manager secret for Gemini API key
+   - `lambdaExecutionRole` - IAM role for Lambda execution with Bedrock permissions
 
 2. **StorageStack** (Layer 3):
    - `cacheTable` - DynamoDB table for caching reasoning results
@@ -163,8 +160,9 @@ The Lambda execution role (from BaseStack) requires:
    - `dynamodb:GetItem` - Read cached results
    - `dynamodb:PutItem` - Write new results
 
-3. **Secrets Manager Access**:
-   - `secretsmanager:GetSecretValue` - Read Gemini API key
+3. **Bedrock Access**:
+   - `bedrock:InvokeModel` - Invoke Amazon Bedrock models
+   - Resource: `arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0`
 
 4. **Parameter Store Access**:
    - `ssm:GetParameter` - Read configuration parameters
@@ -226,19 +224,20 @@ For production deployments, consider using:
 
 ### Post-Deployment Configuration
 
-After deployment, you MUST configure the Gemini API key:
+After deployment, verify Bedrock access:
 
 ```bash
-# Get the secret ARN from stack outputs
-SECRET_ARN=$(aws cloudformation describe-stacks \
-  --stack-name BaseStack \
-  --query 'Stacks[0].Outputs[?OutputKey==`GeminiApiKeySecretArn`].OutputValue' \
-  --output text)
+# Verify Bedrock model access
+aws bedrock list-foundation-models \
+  --region us-east-1 \
+  --query 'modelSummaries[?modelId==`amazon.nova-pro-v1:0`]'
 
-# Update the secret with your Gemini API key
-aws secretsmanager update-secret \
-  --secret-id $SECRET_ARN \
-  --secret-string '{"apiKey":"YOUR_ACTUAL_GEMINI_API_KEY"}'
+# Test the Lambda function
+aws lambda invoke \
+  --function-name co2-analysis-dev-reasoning-api \
+  --payload '{"body": "{\"lat\": 35.6762, \"lon\": 139.6503, \"co2\": 420.5}"}' \
+  response.json
+cat response.json
 ```
 
 ## Testing
@@ -266,12 +265,13 @@ curl -X POST "${API_ENDPOINT}reasoning" \
   }'
 ```
 
-Expected response:
+Expected response (from Bedrock Nova Pro):
 ```json
 {
   "reasoning": "This CO₂ anomaly in Tokyo (35.68°N, 139.65°E) shows a concentration of 420.5 ppm, which is 5 ppm above baseline. Given the high severity and Z-score of 2.5, this is likely due to...",
   "cached": false,
-  "cache_key": "abc123..."
+  "cache_key": "abc123...",
+  "model": "amazon.nova-pro-v1:0"
 }
 ```
 
@@ -337,10 +337,11 @@ X-Ray is enabled for staging and production environments. View traces in the AWS
 
 ### Caching Strategy
 
-The DynamoDB cache reduces Gemini API costs:
+The DynamoDB cache reduces Bedrock API costs:
 - Cache hit: ~$0.00025 (DynamoDB read)
-- Cache miss: ~$0.015 (Gemini API call + DynamoDB write)
+- Cache miss: ~$0.005 (Bedrock Nova Pro call + DynamoDB write)
 - 90-day TTL reduces storage costs
+- **Critical for cost control**: Cache hit rate directly impacts monthly Bedrock costs
 
 ## Security
 
@@ -366,22 +367,29 @@ The following security rules are suppressed with justifications:
 
 ### Best Practices
 
-1. **Least Privilege IAM**: Lambda role has minimal required permissions
-2. **Secrets Management**: API keys in Secrets Manager (not environment variables)
+1. **Least Privilege IAM**: Lambda role has minimal required permissions for Bedrock
+2. **IAM-Based Authentication**: Uses IAM roles instead of API keys (no secrets to manage)
 3. **Input Validation**: API Gateway validates all inputs
 4. **Rate Limiting**: Environment-specific throttling
 5. **Monitoring**: CloudWatch logs and metrics
 6. **Encryption**: All data encrypted at rest and in transit
+7. **Region Restriction**: Bedrock access limited to us-east-1 for Nova Pro
 
 ## Troubleshooting
 
 ### Lambda Function Errors
 
-**Error**: "Failed to retrieve API key from Secrets Manager"
-- **Solution**: Ensure Gemini API key is configured in Secrets Manager
+**Error**: "AccessDeniedException: User is not authorized to perform: bedrock:InvokeModel"
+- **Solution**:
+  - Verify Bedrock model access is enabled in AWS Console (us-east-1)
+  - Check Lambda execution role has `bedrock:InvokeModel` permission
+  - Ensure BaseStack has been deployed with Bedrock permissions
 
-**Error**: "Gemini API error"
-- **Solution**: Check API key validity and Gemini API quota
+**Error**: "ValidationException: The model ID is not supported"
+- **Solution**:
+  - Verify model ID is correct: `amazon.nova-pro-v1:0`
+  - Check you're in the us-east-1 region
+  - Ensure model access is requested in Bedrock console
 
 **Error**: "Error retrieving from cache"
 - **Solution**: Verify DynamoDB table exists and Lambda has permissions
@@ -417,6 +425,8 @@ Potential improvements for future iterations:
 6. **Enhanced Caching**: Redis/ElastiCache for frequently accessed data
 7. **Multi-Region**: Deploy in multiple regions for lower latency
 8. **Custom Domain**: Use custom domain with SSL certificate
+9. **Model Switching**: Support multiple Bedrock models (Claude, Nova, etc.)
+10. **Bedrock Guardrails**: Add content filtering and safety controls
 
 ## Support
 

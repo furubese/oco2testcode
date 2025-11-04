@@ -8,7 +8,7 @@
 - [ ] AWS CLI v2 installed (`aws --version`)
 - [ ] AWS CDK CLI installed (`cdk --version`)
 - [ ] AWS credentials configured (`aws configure`)
-- [ ] Gemini API key obtained from https://makersuite.google.com/app/apikey
+- [ ] Amazon Bedrock access enabled in us-east-1 region
 
 ### 2. Initial Setup (First Time Only)
 
@@ -39,10 +39,10 @@ cdk deploy --all --context environment=dev --require-approval never
 ### 4. Post-Deployment Configuration
 
 ```bash
-# 1. Update Gemini API Key secret
-aws secretsmanager update-secret \
-    --secret-id co2-analysis-dev-gemini-api-key \
-    --secret-string '{"GEMINI_API_KEY":"your-actual-gemini-api-key"}'
+# 1. Verify Bedrock model access
+aws bedrock list-foundation-models \
+    --region us-east-1 \
+    --query 'modelSummaries[?modelId==`amazon.nova-pro-v1:0`]'
 
 # 2. Upload GeoJSON files to S3
 # Get bucket name from outputs
@@ -54,7 +54,13 @@ BUCKET=$(aws cloudformation describe-stacks \
 # Upload files
 aws s3 cp ../data/geojson/ s3://$BUCKET/data/geojson/ --recursive
 
-# 3. Get CloudFront URL
+# 3. Test Lambda with Bedrock
+aws lambda invoke \
+    --function-name co2-analysis-dev-reasoning-function \
+    --payload '{"body": "{\"lat\": 35.6762, \"lon\": 139.6503, \"co2\": 420.5}"}' \
+    response.json && cat response.json
+
+# 4. Get CloudFront URL
 aws cloudformation describe-stacks \
     --stack-name FrontendStack \
     --query 'Stacks[0].Outputs[?OutputKey==`WebsiteUrl`].OutputValue' \
@@ -166,15 +172,17 @@ cdk deploy FrontendStack --context environment=dev
 cdk deploy --all --context environment=dev
 ```
 
-### Update Secrets
+### Update Bedrock Configuration
 
 ```bash
-# Update Gemini API key
-aws secretsmanager update-secret \
-    --secret-id co2-analysis-dev-gemini-api-key \
-    --secret-string '{"GEMINI_API_KEY":"new-api-key"}'
+# Update Bedrock model in Parameter Store
+aws ssm put-parameter \
+    --name "/co2-analysis/dev/config/bedrock-model" \
+    --value "amazon.nova-pro-v1:0" \
+    --type String \
+    --overwrite
 
-# Lambda functions will automatically use the new key on next invocation
+# Lambda functions will use the new model on next invocation
 ```
 
 ## Monitoring Deployment
